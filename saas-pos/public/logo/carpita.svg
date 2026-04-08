@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff7a18"/>
+      <stop offset="1" stop-color="#ffb84a"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="48" fill="url(#g)"/>
+  <rect x="34" y="34" width="188" height="188" rx="40" fill="rgba(255,255,255,0.22)"/>
+  <g fill="#0f172a">
+    <path d="M74 104c0-18 14-32 32-32h44c18 0 32 14 32 32v48c0 18-14 32-32 32h-44c-18 0-32-14-32-32v-48zm32-12c-6 0-12 6-12 12v48c0 6 6 12 12 12h44c6 0 12-6 12-12v-48c0-6-6-12-12-12h-44z"/>
+    <path d="M110 132h56v16h-56z"/>
+  </g>
+  <text x="128" y="210" text-anchor="middle" font-family="system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="22" font-weight="800" fill="#0f172a">CARPITA</text>
+</svg>
+

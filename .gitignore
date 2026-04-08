@@ -1,0 +1,3 @@
+# Raíz del workspace: la app es saas-pos/ (tiene su propio .gitignore)
+.DS_Store
+node_modules/

@@ -1,0 +1,5 @@
+{
+  "name": "carpita-workspace",
+  "private": true,
+  "description": "La aplicación Next.js vive en saas-pos/. Instala y despliega solo desde esa carpeta (ver saas-pos/docs/DEPLOY.md)."
+}
