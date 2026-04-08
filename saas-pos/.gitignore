@@ -30,7 +30,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# Excel de ventas históricas muy pesado (~85MB); GitHub avisa >50MB. El import usa el .csv.
+exports/VENTAS_DETALLADAS_HISTORICAS.xlsx
+
+# env files (can opt-in committing if needed)
 .env*
 
 # vercel
