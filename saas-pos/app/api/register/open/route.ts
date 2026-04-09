@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { setRegisterOpened } from "@/lib/register-session-store";
 import { addRegisterMovement } from "@/lib/store";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
@@ -23,5 +24,12 @@ export async function POST(request: Request) {
     createdBy: user.id,
   };
   addRegisterMovement(movement);
+  const pushed = await pushRuntimeToCloud();
+  if (!pushed.ok) {
+    return NextResponse.json(
+      { error: "cloud_sync_failed", detail: pushed.error },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ data: movement }, { status: 201 });
 }

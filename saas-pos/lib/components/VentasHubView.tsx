@@ -7,21 +7,40 @@ import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   Archive,
+  Ban,
   BarChart3,
+  CircleDollarSign,
   CreditCard,
   Receipt,
   ShoppingBag,
   Tag,
 } from "lucide-react";
-import type { RegisterMovement, Sale } from "@/lib/types";
+import type { AppUser, RegisterMovement, Sale } from "@/lib/types";
 import { es } from "@/lib/locale";
 import { RegisterOpenConfirmModal } from "@/lib/components/RegisterOpenConfirmModal";
+import { expectedRegisterCash, registerMovementCashDelta } from "@/lib/register-balance";
+import { importedSalesStats } from "@/lib/data/imported-sales-stats";
+import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
+import { salesToImportedRegisterMovements } from "@/lib/import-sales-movements";
+import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
+
+/** Evita renderizar decenas de miles de filas en el DOM; el CSV lleva el total filtrado. */
+const IMPORT_MOV_UI_CAP = 500;
 
 const SUB_KEY = "pos_ventas_subtab_saas_v2";
 const MOV_FILTER_KEY = "pos_ventas_mov_filter_v1";
 
 type SubTab = "reportes" | "movimientos" | "arqueos";
 type MovimientoFilter = "todos" | "ventas" | "descuentos" | "gastos";
+type ArqueosHistorySource = "pos" | "import";
+
+type RegisterMonthImportRow = {
+  tickets: number;
+  revenue: number;
+  cash: number;
+  card: number;
+  transfer: number;
+};
 
 function fmtDT(iso: string) {
   try {
@@ -47,6 +66,29 @@ function isTodayEs(iso: string) {
   );
 }
 
+function monthKeyFromIso(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  } catch {
+    return "";
+  }
+}
+
+function formatMonthLabel(ym: string): string {
+  const parts = ym.split("-").map(Number);
+  const y = parts[0];
+  const mo = parts[1];
+  if (!y || !mo) return ym;
+  const d = new Date(y, mo - 1, 1);
+  return d.toLocaleDateString("es-EC", { month: "long", year: "numeric" });
+}
+
+function movementTypeLabel(type: RegisterMovement["type"]): string {
+  const labels = es.arqueosHub.movementTypes;
+  return labels[type as keyof typeof labels] ?? type;
+}
+
 export function VentasHubView() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
@@ -63,6 +105,12 @@ export function VentasHubView() {
   const [openConfirm, setOpenConfirm] = useState<{ amount: number; hasBase: boolean } | null>(
     null,
   );
+  const [me, setMe] = useState<AppUser | null>(null);
+  const [arqueosMonthKey, setArqueosMonthKey] = useState<string>("all");
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustNote, setAdjustNote] = useState("");
+  const [arqueosBusy, setArqueosBusy] = useState(false);
+  const [arqueosHistorySource, setArqueosHistorySource] = useState<ArqueosHistorySource>("import");
 
   useEffect(() => {
     if (tabParam === "arqueos") {
@@ -147,6 +195,14 @@ export function VentasHubView() {
     };
   }, [subTab]);
 
+  useEffect(() => {
+    if (subTab !== "arqueos") return;
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => setMe(d.data ?? null))
+      .catch(() => setMe(null));
+  }, [subTab]);
+
   const movementsLastMonth = useMemo(() => {
     const cutoff = Date.now() - 30 * 86400000;
     return movements
@@ -154,14 +210,174 @@ export function VentasHubView() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [movements]);
 
-  const expectedRunning = useMemo(
-    () =>
-      movements.reduce((acc, m) => {
-        if (m.type === "close") return acc;
-        return acc + (m.type === "out" ? -m.amount : m.amount);
-      }, 0),
-    [movements],
+  const expectedRunning = useMemo(() => expectedRegisterCash(movements), [movements]);
+
+  const voidedMovementIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const m of movements) {
+      if (m.type === "adjustment" && m.voidsMovementId) s.add(m.voidsMovementId);
+    }
+    return s;
+  }, [movements]);
+
+  const importMovements = useMemo(
+    () => salesToImportedRegisterMovements(importedSalesSeed),
+    [],
   );
+
+  const importSalesSorted = useMemo(
+    () =>
+      [...importedSalesSeed].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [],
+  );
+
+  const salesWithDiscountImport = useMemo(
+    () => importSalesSorted.filter((s) => (s.discount ?? 0) > 0),
+    [importSalesSorted],
+  );
+
+  const monthOptions = useMemo(() => {
+    const keys = new Set<string>();
+    for (const m of movements) {
+      const k = monthKeyFromIso(m.createdAt);
+      if (k) keys.add(k);
+    }
+    return [...keys].sort((a, b) => b.localeCompare(a));
+  }, [movements]);
+
+  const arqueosFiltered = useMemo(() => {
+    const list = [...movements].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+    if (arqueosMonthKey === "all") return list;
+    return list.filter((m) => monthKeyFromIso(m.createdAt) === arqueosMonthKey);
+  }, [movements, arqueosMonthKey]);
+
+  const monthCashSum = useMemo(
+    () => arqueosFiltered.reduce((acc, m) => acc + registerMovementCashDelta(m), 0),
+    [arqueosFiltered],
+  );
+
+  const canAdminRegister = me?.role === "admin";
+
+  const registerMonthlyFromImport = useMemo((): Record<string, RegisterMonthImportRow> => {
+    const raw = (
+      importedSalesStats as {
+        registerMonthlyFromImport?: Record<string, RegisterMonthImportRow>;
+      }
+    ).registerMonthlyFromImport;
+    return raw && typeof raw === "object" ? raw : {};
+  }, []);
+
+  const importMonthOptions = useMemo(
+    () => Object.keys(registerMonthlyFromImport).sort((a, b) => b.localeCompare(a)),
+    [registerMonthlyFromImport],
+  );
+
+  useEffect(() => {
+    if (arqueosHistorySource === "import") {
+      if (arqueosMonthKey !== "all" && !importMonthOptions.includes(arqueosMonthKey)) {
+        setArqueosMonthKey("all");
+      }
+      return;
+    }
+    if (arqueosMonthKey !== "all" && !monthOptions.includes(arqueosMonthKey)) {
+      setArqueosMonthKey("all");
+    }
+  }, [arqueosHistorySource, arqueosMonthKey, importMonthOptions, monthOptions]);
+
+  const arqueosImportRows = useMemo(() => {
+    const keys =
+      arqueosMonthKey === "all"
+        ? importMonthOptions
+        : importMonthOptions.includes(arqueosMonthKey)
+          ? [arqueosMonthKey]
+          : [];
+    return keys.map((ym) => ({ ym, row: registerMonthlyFromImport[ym]! }));
+  }, [arqueosMonthKey, importMonthOptions, registerMonthlyFromImport]);
+
+  const importScopeTotals = useMemo(() => {
+    let tickets = 0;
+    let revenue = 0;
+    let cash = 0;
+    let card = 0;
+    let transfer = 0;
+    for (const { row } of arqueosImportRows) {
+      if (!row) continue;
+      tickets += row.tickets;
+      revenue += row.revenue;
+      cash += row.cash;
+      card += row.card;
+      transfer += row.transfer;
+    }
+    return { tickets, revenue, cash, card, transfer };
+  }, [arqueosImportRows]);
+
+  async function submitVoidMovement(targetId: string) {
+    if (!canAdminRegister) return;
+    if (!window.confirm(es.arqueosHub.voidConfirm)) return;
+    setArqueosBusy(true);
+    try {
+      const res = await fetch("/api/register/movements/void", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(
+          data?.message ??
+            data?.error ??
+            (data?.error === "cloud_sync_failed"
+              ? `No se guardó en Supabase: ${String(data?.detail ?? "")}`
+              : "No se pudo anular el movimiento."),
+        );
+        return;
+      }
+      window.dispatchEvent(new CustomEvent("pos-register-updated"));
+    } finally {
+      setArqueosBusy(false);
+    }
+  }
+
+  async function submitManualAdjust() {
+    if (!canAdminRegister) return;
+    const amount = Number(adjustAmount);
+    const note = adjustNote.trim();
+    if (!Number.isFinite(amount) || amount === 0) {
+      window.alert("Indique un monto distinto de cero.");
+      return;
+    }
+    if (note.length < 3) {
+      window.alert("Indique el motivo del ajuste (mín. 3 caracteres).");
+      return;
+    }
+    setArqueosBusy(true);
+    try {
+      const res = await fetch("/api/register/movements/adjust", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, note }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        window.alert(
+          data?.message ??
+            (data?.error === "cloud_sync_failed"
+              ? `No se guardó en Supabase: ${String(data?.detail ?? "")}`
+              : "No se pudo registrar el ajuste."),
+        );
+        return;
+      }
+      setAdjustAmount("");
+      setAdjustNote("");
+      window.dispatchEvent(new CustomEvent("pos-register-updated"));
+    } finally {
+      setArqueosBusy(false);
+    }
+  }
 
   function submitOpenRegister() {
     if (registerOpen) {
@@ -178,8 +394,13 @@ export function VentasHubView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount }),
     });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert("No se pudo abrir la caja.");
+      window.alert(
+        data?.error === "cloud_sync_failed"
+          ? `No se guardó en Supabase: ${String(data?.detail ?? "")}. Revisa la tabla pos_runtime_state y las variables de entorno.`
+          : "No se pudo abrir la caja.",
+      );
       return;
     }
     window.dispatchEvent(new CustomEvent("pos-register-updated"));
@@ -201,8 +422,13 @@ export function VentasHubView() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ amount: counted }),
     });
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert("No se pudo cerrar la caja.");
+      window.alert(
+        data?.error === "cloud_sync_failed"
+          ? `No se guardó en Supabase: ${String(data?.detail ?? "")}. Revisa la tabla pos_runtime_state y las variables de entorno.`
+          : "No se pudo cerrar la caja.",
+      );
       return;
     }
     window.dispatchEvent(new CustomEvent("pos-register-updated"));
@@ -214,18 +440,6 @@ export function VentasHubView() {
   const discountsToday = useMemo(
     () => salesToday.filter((s) => (s.discount ?? 0) > 0),
     [salesToday],
-  );
-  const salesWithDiscount = useMemo(
-    () =>
-      [...sales]
-        .filter((s) => (s.discount ?? 0) > 0)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 80),
-    [sales],
-  );
-  const gastosMovements = useMemo(
-    () => movements.filter((m) => m.type === "out"),
-    [movements],
   );
   const revenueToday = useMemo(
     () => salesToday.reduce((a, s) => a + s.total, 0),
@@ -396,27 +610,33 @@ export function VentasHubView() {
           <div className="animate-fade-in space-y-3">
             <p className="text-xs text-slate-500">
               {movFilter === "todos" &&
-                "Todos los movimientos de caja: aperturas, cierres, entradas por ventas y salidas (gastos)."}
-              {movFilter === "ventas" && "Ventas registradas (mismo listado que antes en la pestaña Ventas)."}
+                "Solo datos del reporte de ventas importado (import:exports). Una fila por venta; no incluye aperturas, cierres ni ajustes del POS."}
+              {movFilter === "ventas" && "Ventas del archivo importado (histórico del reporte)."}
               {movFilter === "descuentos" &&
-                "Solo tickets con descuento aplicado (importe del descuento y detalle)."}
-              {movFilter === "gastos" && "Salidas de efectivo registradas en caja (tipo «out»)."}
+                "Tickets con descuento en el reporte importado (importe y detalle)."}
+              {movFilter === "gastos" &&
+                "El reporte importado no incluye gastos de caja; esta vista queda vacía por ahora."}
             </p>
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               {(movFilter === "todos" || movFilter === "gastos") && (
                 <div className="flex flex-wrap items-center justify-end gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
-                  <button
-                    type="button"
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold"
-                    onClick={() => window.open("/api/register/movements/export", "_blank")}
-                  >
-                    Exportar movimientos CSV
-                  </button>
+                  {movFilter === "todos" && (
+                    <ExportCsvPeriodLinks
+                      hrefBase="/api/import/sales-movements/export"
+                      label="Exportar CSV"
+                    />
+                  )}
                 </div>
               )}
 
               {movFilter === "todos" && (
                 <>
+                  {importMovements.length > IMPORT_MOV_UI_CAP && (
+                    <p className="border-b border-amber-100 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
+                      Mostrando las {IMPORT_MOV_UI_CAP} más recientes de {importMovements.length.toLocaleString("es-EC")}{" "}
+                      ventas del import. Usá «Exportar CSV» para bajar el período completo.
+                    </p>
+                  )}
                   <table className="w-full border-collapse text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
@@ -427,24 +647,49 @@ export function VentasHubView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {movements.map((m) => (
-                        <tr key={m.id} className="border-b border-slate-100">
-                          <td className="px-3 py-2 capitalize">{m.type}</td>
-                          <td className="px-3 py-2 font-semibold">${m.amount.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-slate-600">{m.note ?? "—"}</td>
-                          <td className="px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
-                        </tr>
-                      ))}
+                      {importMovements.slice(0, IMPORT_MOV_UI_CAP).map((m) => {
+                        const d = registerMovementCashDelta(m);
+                        return (
+                          <tr key={m.id} className="border-b border-slate-100">
+                            <td className="px-3 py-2">{movementTypeLabel(m.type)}</td>
+                            <td className="px-3 py-2 font-semibold tabular-nums">
+                              <span className="block">${Math.abs(Number(m.amount) || 0).toFixed(2)}</span>
+                              {m.type === "adjustment" && (
+                                <span
+                                  className={`text-[0.65rem] font-bold ${d >= 0 ? "text-emerald-600" : "text-rose-600"}`}
+                                >
+                                  Δ caja {d >= 0 ? "+" : ""}${d.toFixed(2)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-slate-600">{m.note ?? "—"}</td>
+                            <td className="px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                  {movements.length === 0 && (
-                    <p className="p-6 text-center text-slate-500">Sin movimientos.</p>
+                  {importMovements.length === 0 && (
+                    <p className="p-6 text-center text-slate-500">Sin movimientos en el import.</p>
                   )}
                 </>
               )}
 
               {movFilter === "ventas" && (
                 <>
+                  <div className="flex flex-wrap justify-end border-b border-slate-100 bg-slate-50 px-3 py-2">
+                    <ExportCsvPeriodLinks
+                      hrefBase="/api/sales/export"
+                      label="Exportar ventas CSV"
+                      extraParams={{ format: "csv", source: "imported" }}
+                    />
+                  </div>
+                  {importSalesSorted.length > 200 && (
+                    <p className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                      Vista previa: 200 filas de {importSalesSorted.length.toLocaleString("es-EC")}. Exportá CSV para el
+                      listado completo por período.
+                    </p>
+                  )}
                   <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
@@ -459,7 +704,7 @@ export function VentasHubView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {sales.slice(0, 80).map((s) => (
+                      {importSalesSorted.slice(0, 200).map((s) => (
                         <tr key={s.id} className="border-b border-slate-100">
                           <td className="px-3 py-2 font-mono text-xs text-slate-500">{s.id}</td>
                           <td className="px-3 py-2">{fmtDT(s.createdAt)}</td>
@@ -482,14 +727,21 @@ export function VentasHubView() {
                       ))}
                     </tbody>
                   </table>
-                  {sales.length === 0 && (
-                    <p className="p-8 text-center text-slate-500">Sin ventas en memoria.</p>
+                  {importSalesSorted.length === 0 && (
+                    <p className="p-8 text-center text-slate-500">Sin ventas en el import.</p>
                   )}
                 </>
               )}
 
               {movFilter === "descuentos" && (
                 <>
+                  <div className="flex flex-wrap justify-end border-b border-slate-100 bg-slate-50 px-3 py-2">
+                    <ExportCsvPeriodLinks
+                      hrefBase="/api/sales/export"
+                      label="Exportar ventas CSV"
+                      extraParams={{ format: "csv", source: "imported" }}
+                    />
+                  </div>
                   <table className="w-full min-w-[560px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
@@ -501,7 +753,7 @@ export function VentasHubView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {salesWithDiscount.map((s) => (
+                      {salesWithDiscountImport.slice(0, IMPORT_MOV_UI_CAP).map((s) => (
                         <tr key={s.id} className="border-b border-slate-100">
                           <td className="px-3 py-2 font-mono text-xs">{s.id}</td>
                           <td className="px-3 py-2">{fmtDT(s.createdAt)}</td>
@@ -516,38 +768,16 @@ export function VentasHubView() {
                       ))}
                     </tbody>
                   </table>
-                  {salesWithDiscount.length === 0 && (
-                    <p className="p-8 text-center text-slate-500">Sin ventas con descuento.</p>
+                  {salesWithDiscountImport.length === 0 && (
+                    <p className="p-8 text-center text-slate-500">Sin ventas con descuento en el import.</p>
                   )}
                 </>
               )}
 
               {movFilter === "gastos" && (
-                <>
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                      <tr>
-                        <th className="px-3 py-3">Tipo</th>
-                        <th className="px-3 py-3">Monto</th>
-                        <th className="px-3 py-3">Nota</th>
-                        <th className="px-3 py-3">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {gastosMovements.map((m) => (
-                        <tr key={m.id} className="border-b border-slate-100">
-                          <td className="px-3 py-2 capitalize">{m.type}</td>
-                          <td className="px-3 py-2 font-semibold text-rose-700">−${m.amount.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-slate-600">{m.note ?? "—"}</td>
-                          <td className="px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {gastosMovements.length === 0 && (
-                    <p className="p-6 text-center text-slate-500">Sin salidas de caja (gastos).</p>
-                  )}
-                </>
+                <p className="p-8 text-center text-sm text-slate-500">
+                  No hay gastos de caja en el reporte importado.
+                </p>
               )}
             </div>
           </div>
@@ -556,14 +786,24 @@ export function VentasHubView() {
         {subTab === "arqueos" && (
           <div className="animate-fade-in space-y-6">
             <p className="text-xs text-slate-500">{es.arqueosHub.registerRedirectNote}</p>
-            <div className="flex justify-end">
-              <button
-                type="button"
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold"
-                onClick={() => window.open("/api/register/movements/export", "_blank")}
-              >
-                Exportar arqueos CSV
-              </button>
+            <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              {arqueosHistorySource === "import" ? (
+                <>
+                  <ExportCsvPeriodLinks
+                    hrefBase="/api/import/sales-movements/export"
+                    label="Detalle reporte CSV"
+                  />
+                  <ExportCsvPeriodLinks
+                    hrefBase="/api/import/register-monthly/export"
+                    label="Resumen mensual CSV"
+                  />
+                </>
+              ) : (
+                <ExportCsvPeriodLinks
+                  hrefBase="/api/register/movements/export"
+                  label="Movimientos POS CSV"
+                />
+              )}
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -650,37 +890,290 @@ export function VentasHubView() {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-                <h2 className="text-lg font-bold text-slate-900">{es.arqueosHub.sectionHistory}</h2>
-                <p className="mt-1 text-xs text-slate-500">{es.arqueosHub.historyHint}</p>
-                <div className="mt-4 overflow-x-auto rounded-lg border border-slate-100">
-                  <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+              {canAdminRegister ? (
+                <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-6 shadow-sm">
+                  <h2 className="flex items-center gap-2 text-lg font-bold text-violet-950">
+                    <CircleDollarSign className="h-5 w-5 shrink-0" />
+                    {es.arqueosHub.adminPanel}
+                  </h2>
+                  <p className="mt-1 text-xs text-violet-900/80">{es.arqueosHub.adminPanelHint}</p>
+                  <div className="mt-4 rounded-xl border border-violet-100 bg-white p-4">
+                    <h3 className="text-sm font-bold text-slate-800">{es.arqueosHub.adjustTitle}</h3>
+                    <label className="mt-2 block text-xs font-bold uppercase text-slate-500">
+                      {es.arqueosHub.adjustAmount}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={adjustAmount}
+                      onChange={(e) => setAdjustAmount(e.target.value)}
+                      placeholder="Ej. 10.50 o -5.00"
+                      disabled={arqueosBusy}
+                    />
+                    <label className="mt-2 block text-xs font-bold uppercase text-slate-500">
+                      {es.arqueosHub.adjustNote}
+                    </label>
+                    <input
+                      type="text"
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      value={adjustNote}
+                      onChange={(e) => setAdjustNote(e.target.value)}
+                      placeholder="Ej. Diferencia contada / error de tipeo"
+                      disabled={arqueosBusy}
+                    />
+                    <button
+                      type="button"
+                      disabled={arqueosBusy}
+                      onClick={() => void submitManualAdjust()}
+                      className="btn-pos-primary mt-3 w-full py-2 text-sm font-extrabold uppercase text-white disabled:opacity-50"
+                    >
+                      {es.arqueosHub.adjustSubmit}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-lg border border-slate-200 bg-slate-50/80 p-6 shadow-sm">
+                  <h2 className="text-lg font-bold text-slate-800">{es.arqueosHub.sectionHistory}</h2>
+                  <p className="mt-2 text-sm text-slate-600">{es.arqueosHub.historyHint}</p>
+                  <p className="mt-3 text-xs text-slate-500">
+                    Vista rápida (30 días): {movementsLastMonth.length} movimientos. El detalle completo está abajo en
+                    historial mensual.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <h2 className="text-lg font-bold text-slate-900">{es.arqueosHub.sectionMonthly}</h2>
+                <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-slate-50 p-0.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArqueosHistorySource("pos");
+                      setArqueosMonthKey("all");
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide ${
+                      arqueosHistorySource === "pos"
+                        ? "bg-slate-900 text-white shadow"
+                        : "text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    {es.arqueosHub.historySourcePos}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setArqueosHistorySource("import");
+                      setArqueosMonthKey("all");
+                    }}
+                    className={`rounded-full px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide ${
+                      arqueosHistorySource === "import"
+                        ? "bg-emerald-700 text-white shadow"
+                        : "text-slate-600 hover:bg-white"
+                    }`}
+                  >
+                    {es.arqueosHub.historySourceImport}
+                  </button>
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                {arqueosHistorySource === "pos"
+                  ? es.arqueosHub.monthlyHint
+                  : es.arqueosHub.importHistoryHint.replace("{source}", importedSalesStats.source)}
+              </p>
+              {arqueosHistorySource === "import" && (
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2 text-[0.7rem] text-emerald-950">
+                  <span>
+                    <span className="font-bold">{es.arqueosHub.importSourceLabel}:</span>{" "}
+                    {importedSalesStats.source}
+                  </span>
+                  <span>
+                    <span className="font-bold">{es.arqueosHub.importTicketsTotal}:</span>{" "}
+                    {importedSalesStats.transactionCount.toLocaleString("es-EC")}
+                  </span>
+                  <span className="text-emerald-800/90">
+                    {new Date(importedSalesStats.dateFrom).toLocaleDateString("es-EC")} —{" "}
+                    {new Date(importedSalesStats.dateTo).toLocaleDateString("es-EC")}
+                  </span>
+                </div>
+              )}
+              <div className="mt-4 flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-500">Mes</label>
+                  <select
+                    className="mt-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold"
+                    value={arqueosMonthKey}
+                    onChange={(e) => setArqueosMonthKey(e.target.value)}
+                  >
+                    <option value="all">{es.arqueosHub.monthAll}</option>
+                    {(arqueosHistorySource === "import" ? importMonthOptions : monthOptions).map((ym) => (
+                      <option key={ym} value={ym}>
+                        {formatMonthLabel(ym)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {arqueosHistorySource === "pos" ? (
+                  <>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-2 text-sm">
+                      <span className="text-slate-500">{es.arqueosHub.monthSummary}: </span>
+                      <strong className="tabular-nums text-slate-900">{arqueosFiltered.length}</strong>
+                      {arqueosMonthKey !== "all" && (
+                        <>
+                          <span className="mx-2 text-slate-300">·</span>
+                          <span className="text-slate-500">{es.arqueosHub.monthBalanceHint} </span>
+                          <strong
+                            className={`tabular-nums ${monthCashSum >= 0 ? "text-emerald-700" : "text-rose-700"}`}
+                          >
+                            {monthCashSum >= 0 ? "+" : ""}
+                            ${monthCashSum.toFixed(2)}
+                          </strong>
+                        </>
+                      )}
+                    </div>
+                    <div className="ml-auto text-xs text-slate-500">
+                      {es.register.expected} (global):{" "}
+                      <strong className="tabular-nums text-slate-800">${expectedRunning.toFixed(2)}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-1 flex-wrap gap-3 text-sm">
+                    <div className="rounded-lg border border-emerald-100 bg-emerald-50/50 px-4 py-2">
+                      <span className="text-xs font-bold uppercase text-emerald-900">
+                        {es.arqueosHub.importScopeTotals}
+                      </span>
+                      <p className="mt-1 tabular-nums text-emerald-950">
+                        {arqueosMonthKey === "all" ? `${arqueosImportRows.length} meses · ` : ""}
+                        {importScopeTotals.tickets.toLocaleString("es-EC")} tickets · $
+                        {importScopeTotals.revenue.toFixed(2)} ingresos
+                      </p>
+                      <p className="text-xs text-emerald-900/85">
+                        Efe. ${importScopeTotals.cash.toFixed(2)} · Tarj. $
+                        {importScopeTotals.card.toFixed(2)} · Transf. $
+                        {importScopeTotals.transfer.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 overflow-x-auto rounded-lg border border-slate-100">
+                {arqueosHistorySource === "pos" ? (
+                  <table className="w-full min-w-[720px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
                         <th className="px-3 py-2">Fecha</th>
                         <th className="px-3 py-2">Tipo</th>
-                        <th className="px-3 py-2 text-right">Monto</th>
+                        <th className="px-3 py-2 text-right">Monto reg.</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.cashDeltaCol}</th>
                         <th className="px-3 py-2">Nota</th>
+                        {canAdminRegister && <th className="px-3 py-2 text-right">Acciones</th>}
                       </tr>
                     </thead>
                     <tbody>
-                      {movementsLastMonth.map((m) => (
-                        <tr key={m.id} className="border-b border-slate-100">
-                          <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
-                          <td className="px-3 py-2 capitalize">{m.type}</td>
-                          <td className="px-3 py-2 text-right font-semibold tabular-nums">${m.amount.toFixed(2)}</td>
-                          <td className="max-w-[220px] truncate px-3 py-2 text-xs text-slate-600" title={m.note ?? ""}>
-                            {m.note ?? "—"}
-                          </td>
-                        </tr>
-                      ))}
+                      {arqueosFiltered.map((m) => {
+                        const delta = registerMovementCashDelta(m);
+                        const voided = voidedMovementIds.has(m.id);
+                        const canVoidThis = canAdminRegister && !voided && m.type !== "close";
+                        return (
+                          <tr
+                            key={m.id}
+                            className={`border-b border-slate-100 ${voided ? "bg-amber-50/50 opacity-80" : ""}`}
+                          >
+                            <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
+                            <td className="px-3 py-2">
+                              <span className="font-medium">{movementTypeLabel(m.type)}</span>
+                              {voided && (
+                                <span className="ml-2 text-[0.65rem] font-bold uppercase text-amber-800">
+                                  {es.arqueosHub.voidedRow}
+                                </span>
+                              )}
+                              {m.voidsMovementId && (
+                                <span className="ml-1 block text-[0.65rem] text-slate-500">
+                                  → ref. {m.voidsMovementId}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                              {m.type === "adjustment"
+                                ? `${(Number(m.amount) || 0) >= 0 ? "" : "−"}$${Math.abs(Number(m.amount) || 0).toFixed(2)}`
+                                : `$${Math.abs(Number(m.amount) || 0).toFixed(2)}`}
+                            </td>
+                            <td
+                              className={`px-3 py-2 text-right text-sm font-bold tabular-nums ${
+                                delta > 0 ? "text-emerald-700" : delta < 0 ? "text-rose-700" : "text-slate-500"
+                              }`}
+                            >
+                              {delta === 0 ? "—" : `${delta > 0 ? "+" : ""}$${delta.toFixed(2)}`}
+                            </td>
+                            <td className="max-w-[240px] truncate px-3 py-2 text-xs text-slate-600" title={m.note ?? ""}>
+                              {m.note ?? "—"}
+                            </td>
+                            {canAdminRegister && (
+                              <td className="px-3 py-2 text-right">
+                                {canVoidThis ? (
+                                  <button
+                                    type="button"
+                                    disabled={arqueosBusy}
+                                    onClick={() => void submitVoidMovement(m.id)}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2 py-1 text-[0.65rem] font-bold uppercase text-rose-800 hover:bg-rose-50 disabled:opacity-50"
+                                  >
+                                    <Ban className="h-3 w-3" />
+                                    {es.arqueosHub.voidMovement}
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-slate-400">—</span>
+                                )}
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
-                </div>
-                {movementsLastMonth.length === 0 && (
-                  <p className="mt-4 text-center text-sm text-slate-500">Sin movimientos en los últimos 30 días.</p>
+                ) : (
+                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">{es.arqueosHub.importColMonth}</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.importColTickets}</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.importColRevenue}</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.importColCash}</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.importColCard}</th>
+                        <th className="px-3 py-2 text-right">{es.arqueosHub.importColTransfer}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {arqueosImportRows.map(({ ym, row }) => {
+                        if (!row) return null;
+                        return (
+                          <tr key={ym} className="border-b border-slate-100">
+                            <td className="px-3 py-2 font-semibold text-slate-800">{formatMonthLabel(ym)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums">{row.tickets.toLocaleString("es-EC")}</td>
+                            <td className="px-3 py-2 text-right font-semibold tabular-nums text-emerald-800">
+                              ${row.revenue.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-700">${row.cash.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-700">${row.card.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-right tabular-nums text-slate-700">${row.transfer.toFixed(2)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
+              {arqueosHistorySource === "pos" && arqueosFiltered.length === 0 && (
+                <p className="mt-4 text-center text-sm text-slate-500">Sin movimientos en este período.</p>
+              )}
+              {arqueosHistorySource === "import" && arqueosImportRows.length === 0 && (
+                <p className="mt-4 text-center text-sm text-slate-500">
+                  Sin datos importados. Ejecutá{" "}
+                  <code className="rounded bg-slate-100 px-1">npm run import:exports</code> para regenerar estadísticas
+                  desde tu CSV.
+                </p>
+              )}
             </div>
           </div>
         )}

@@ -24,6 +24,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Trozos generados por scripts/sync-exports.cjs; ESLint agota memoria en archivos enormes.
+    "lib/data/imported-sales-sample-part-*.ts",
   ]),
 ]);
 

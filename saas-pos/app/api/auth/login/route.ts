@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+import { pullRuntimeFromCloud } from "@/lib/cloud-sync";
 import { verifyLogin } from "@/lib/user-accounts";
 
 export async function POST(request: Request) {
+  await pullRuntimeFromCloud();
   const body = (await request.json()) as { email?: string; password?: string };
   const email = (body.email ?? "").trim().toLowerCase();
   const password = body.password ?? "";

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LegacySectionStub } from "@/lib/components/LegacySectionStub";
+import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 import type { Customer } from "@/lib/types";
 
 function fmtPhone(p: string | null | undefined) {
@@ -175,13 +176,7 @@ export function ClientesClient() {
           <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold" onClick={load}>
             Recargar
           </button>
-          <button
-            type="button"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold"
-            onClick={() => window.open("/api/customers/export", "_blank")}
-          >
-            Exportar CSV
-          </button>
+          <ExportCsvPeriodLinks hrefBase="/api/customers/export" label="Exportar CSV" />
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">

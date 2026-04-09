@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import type { KitchenTicket, SaleItem, SaleChannel } from "@/lib/types";
 import { addKitchenTicket, getKitchenTickets } from "@/lib/store";
@@ -42,5 +43,12 @@ export async function POST(request: Request) {
     readyAt: null,
   };
   addKitchenTicket(ticket);
+  const pushed = await pushRuntimeToCloud();
+  if (!pushed.ok) {
+    return NextResponse.json(
+      { error: "cloud_sync_failed", detail: pushed.error },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ data: ticket }, { status: 201 });
 }

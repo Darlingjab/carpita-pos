@@ -11,12 +11,13 @@
 |---------|-----------|
 | [docs/README.md](./docs/README.md) | Índice de documentos |
 | [docs/DEPLOY.md](./docs/DEPLOY.md) | Publicación: Vercel, standalone, variables, checklist |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Capas: UI, API, store, Supabase |
 | [README.md](./README.md) | Desarrollo local, rutas, scripts |
 
 ## Calidad antes de entregar
 
-- `npm run check` (lint + TypeScript)
-- `npm run build` tras cambios grandes
+- `npm run verify` (lint + TypeScript + build de producción)
+- O por pasos: `npm run check` y `npm run build`
 
 ## Contexto histórico
 

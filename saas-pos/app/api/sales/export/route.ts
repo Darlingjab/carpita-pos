@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
+import { resolveExportRangeFromSearchParams, dateToYmd, saleInRange } from "@/lib/export-period";
 import { salesVisibleToRole } from "@/lib/sales-access";
 import { getSales } from "@/lib/store";
 import type { Sale } from "@/lib/types";
@@ -12,6 +13,10 @@ function escCsv(value: string | number | null | undefined) {
     return `"${raw.replace(/"/g, '""')}"`;
   }
   return raw;
+}
+
+function sumMethod(s: Sale, m: "cash" | "card" | "transfer") {
+  return (s.payments ?? []).filter((p) => p.method === m).reduce((a, p) => a + p.amount, 0);
 }
 
 function toRows(sales: Sale[]) {
@@ -25,7 +30,10 @@ function toRows(sales: Sale[]) {
     subtotal: Number(s.subtotal ?? 0).toFixed(2),
     descuento: Number(s.discount ?? 0).toFixed(2),
     total: Number(s.total ?? 0).toFixed(2),
-    pago: (s.payments ?? []).map((p) => `${p.method}:${p.amount.toFixed(2)}`).join(" | "),
+    pago_efectivo: sumMethod(s, "cash").toFixed(2),
+    pago_tarjeta: sumMethod(s, "card").toFixed(2),
+    pago_transferencia: sumMethod(s, "transfer").toFixed(2),
+    pago_detalle: (s.payments ?? []).map((p) => `${p.method}:${p.amount.toFixed(2)}`).join(" | "),
     items: (s.items ?? []).map((i) => `${i.qty}x ${i.name}`).join(" | "),
   }));
 }
@@ -71,9 +79,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const format = (url.searchParams.get("format") ?? "csv").toLowerCase();
   const source = (url.searchParams.get("source") ?? "session").toLowerCase();
-  const from = url.searchParams.get("from") ?? "";
-  const to = url.searchParams.get("to") ?? "";
   const server = url.searchParams.get("server") ?? "";
+  const range = resolveExportRangeFromSearchParams(url.searchParams);
 
   if (source === "imported" && !hasPermission(user, "reports.read")) {
     return NextResponse.json(
@@ -83,11 +90,8 @@ export async function GET(request: Request) {
   }
 
   const base = source === "imported" ? importedSalesSeed : getSales();
-  const fromMs = from ? new Date(`${from}T00:00:00`).getTime() : Number.NEGATIVE_INFINITY;
-  const toMs = to ? new Date(`${to}T23:59:59.999`).getTime() : Number.POSITIVE_INFINITY;
   const filtered = base.filter((s) => {
-    const ms = new Date(s.createdAt).getTime();
-    if (!Number.isFinite(ms) || ms < fromMs || ms > toMs) return false;
+    if (!saleInRange(s.createdAt, range)) return false;
     if (server && server !== "all" && server !== "_all") {
       return (s.serverName ?? "—") === server;
     }
@@ -95,8 +99,9 @@ export async function GET(request: Request) {
   });
   const sales = salesVisibleToRole(filtered, user);
 
-  const safeFrom = from || "inicio";
-  const safeTo = to || "hoy";
+  const safeFrom =
+    range === "all" ? "inicio" : dateToYmd(new Date(range.fromMs));
+  const safeTo = range === "all" ? "fin" : dateToYmd(new Date(range.toMs));
 
   if (format === "pdf") {
     const file = await buildPdf(sales, safeFrom, safeTo, source);
@@ -109,7 +114,22 @@ export async function GET(request: Request) {
   }
 
   const rows = toRows(sales);
-  const headers = ["id", "fecha", "canal", "mesa", "cliente", "mesero", "subtotal", "descuento", "total", "pago", "items"];
+  const headers = [
+    "id",
+    "fecha",
+    "canal",
+    "mesa",
+    "cliente",
+    "mesero",
+    "subtotal",
+    "descuento",
+    "total",
+    "pago_efectivo",
+    "pago_tarjeta",
+    "pago_transferencia",
+    "pago_detalle",
+    "items",
+  ];
   const csv = [
     headers.join(","),
     ...rows.map((r) => headers.map((h) => escCsv((r as Record<string, string>)[h])).join(",")),

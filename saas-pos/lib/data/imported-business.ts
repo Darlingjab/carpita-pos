@@ -7,5 +7,4 @@ export const importedBusiness: Business = {
   name: "Negocio (catálogo importado)",
   type: "restaurant",
   currency: "USD",
-  staffEmailDomain: "carpita",
 };

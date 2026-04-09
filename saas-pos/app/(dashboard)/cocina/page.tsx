@@ -1,4 +1,5 @@
 import { KitchenDisplayClient } from "@/lib/components/KitchenDisplayClient";
+import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 
 export default function CocinaPage() {
   return (
@@ -9,13 +10,7 @@ export default function CocinaPage() {
           Los pedidos llegan al enviar «Enviar a cocina» desde Restaurante. Actualización cada pocos segundos.
         </p>
         <div className="mt-2">
-          <button
-            type="button"
-            className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold"
-            onClick={() => window.open("/api/kitchen/tickets/export", "_blank")}
-          >
-            Exportar cocina CSV
-          </button>
+          <ExportCsvPeriodLinks hrefBase="/api/kitchen/tickets/export" label="Exportar cocina CSV" />
         </div>
       </div>
       <KitchenDisplayClient />

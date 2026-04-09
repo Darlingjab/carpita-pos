@@ -1,7 +1,7 @@
 export type BusinessType = "restaurant" | "retail";
 export type RoleName = "admin" | "cashier" | "supervisor" | "waiter" | "cook";
 export type SaleChannel = "counter" | "table";
-export type PaymentMethod = "cash" | "card";
+export type PaymentMethod = "cash" | "card" | "transfer";
 
 export type Permission =
   | "sales.create"
@@ -11,7 +11,8 @@ export type Permission =
   | "reports.read"
   | "products.manage"
   | "users.manage"
-  | "kitchen.access";
+  | "kitchen.access"
+  | "favorites.manage";
 
 export interface Business {
   id: string;
@@ -84,6 +85,8 @@ export interface Product {
   sku: string;
   price: number;
   isFavorite: boolean;
+  /** Color del botón en favoritos del POS (0–5). Opcional; por defecto 0. */
+  favoriteColorIndex?: number;
   /** Si el producto está disponible para venta en el POS */
   isActive: boolean;
   /** Costo (gestión; opcional en importación) */
@@ -148,11 +151,13 @@ export interface Sale {
 export interface RegisterMovement {
   id: string;
   businessId: string;
-  type: "open" | "in" | "out" | "close";
+  type: "open" | "in" | "out" | "close" | "adjustment";
   amount: number;
   note: string | null;
   createdAt: string;
   createdBy: string;
+  /** Solo ajustes: anula el efecto en caja del movimiento indicado (trazabilidad). */
+  voidsMovementId?: string | null;
 }
 
 export type KitchenTicketStatus = "pending" | "preparing" | "ready";

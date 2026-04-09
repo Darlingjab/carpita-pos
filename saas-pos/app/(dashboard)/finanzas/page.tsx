@@ -5,6 +5,7 @@ import { es } from "@/lib/locale";
 import { importedSalesStats } from "@/lib/data/imported-sales-stats";
 import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
 import type { KitchenTicket, Sale } from "@/lib/types";
+import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
@@ -31,6 +32,27 @@ function endOfDayMs(dateStr: string) {
   return d.getTime();
 }
 
+function startOfWeekMonday(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const day = x.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  x.setDate(x.getDate() + diff);
+  return x;
+}
+
+function salePaymentsLabel(s: Sale): string {
+  const rows = s.payments ?? [];
+  if (rows.length === 0) return "—";
+  return rows
+    .map((p) => {
+      const tag =
+        p.method === "cash" ? "Efe" : p.method === "card" ? "Tarj" : "Transf";
+      return `${tag} ${currency(p.amount)}`;
+    })
+    .join(" · ");
+}
+
 export default function FinanzasInformesPage() {
   const historic = importedSalesStats;
   const [source, setSource] = useState<"imported" | "session">("imported");
@@ -40,13 +62,15 @@ export default function FinanzasInformesPage() {
   const today = useMemo(() => new Date(), []);
   const [from, setFrom] = useState(() => toDateInputValue(new Date(today.getTime() - 6 * 86400000)));
   const [to, setTo] = useState(() => toDateInputValue(today));
-  const [quickRange, setQuickRange] = useState<"day" | "7" | "15" | "30" | "custom">("7");
+  const [quickRange, setQuickRange] = useState<
+    "day" | "7" | "15" | "30" | "week" | "year" | "custom"
+  >("7");
   const [serverFilter, setServerFilter] = useState<string>("all");
 
   useEffect(() => {
     fetch("/api/sales")
       .then((r) => r.json())
-      .then((d) => setSales(d.data ?? []))
+      .then((d) => setSales(Array.isArray(d.data) ? d.data : []))
       .catch(() => setSales([]));
     fetch("/api/kitchen/tickets")
       .then((r) => r.json())
@@ -54,14 +78,29 @@ export default function FinanzasInformesPage() {
       .catch(() => setKitchenTickets([]));
   }, []);
 
+  const importedSaleIds = useMemo(() => new Set(importedSalesSeed.map((s) => s.id)), []);
+
   const sourceSales = useMemo(() => {
-    return source === "imported" ? importedSalesSeed : sales;
-  }, [source, sales]);
+    if (source === "imported") return importedSalesSeed;
+    return sales.filter((s) => !importedSaleIds.has(s.id));
+  }, [source, sales, importedSaleIds]);
 
   function applyRange(days: number) {
     const end = new Date();
     const start = new Date(end.getTime() - (days - 1) * 86400000);
     setFrom(toDateInputValue(start));
+    setTo(toDateInputValue(end));
+  }
+
+  function applyThisWeek() {
+    const end = new Date();
+    setFrom(toDateInputValue(startOfWeekMonday(end)));
+    setTo(toDateInputValue(end));
+  }
+
+  function applyThisYear() {
+    const end = new Date();
+    setFrom(toDateInputValue(new Date(end.getFullYear(), 0, 1)));
     setTo(toDateInputValue(end));
   }
 
@@ -90,16 +129,20 @@ export default function FinanzasInformesPage() {
   const avgTicket = count > 0 ? revenue / count : 0;
 
   const byPayment = useMemo(() => {
-    const cash = filtered.reduce(
-      (a, s) => a + (s.payments?.filter((p) => p.method === "cash").reduce((x, p) => x + p.amount, 0) ?? 0),
-      0,
-    );
-    const card = filtered.reduce(
-      (a, s) => a + (s.payments?.filter((p) => p.method === "card").reduce((x, p) => x + p.amount, 0) ?? 0),
-      0,
-    );
-    return { cash, card };
+    const sumMethod = (method: "cash" | "card" | "transfer") =>
+      filtered.reduce(
+        (a, s) =>
+          a + (s.payments?.filter((p) => p.method === method).reduce((x, p) => x + p.amount, 0) ?? 0),
+        0,
+      );
+    const cash = sumMethod("cash");
+    const card = sumMethod("card");
+    const transfer = sumMethod("transfer");
+    return { cash, card, transfer };
   }, [filtered]);
+
+  const paymentsSum = byPayment.cash + byPayment.card + byPayment.transfer;
+  const paymentsMatchRevenue = Math.abs(paymentsSum - revenue) < 0.05;
 
   const topProducts = useMemo(() => {
     const map = new Map<string, { name: string; qty: number }>();
@@ -158,18 +201,11 @@ export default function FinanzasInformesPage() {
       .slice(0, 10);
   }, [dailyKitchen.delays]);
 
-  function exportSales(format: "csv" | "pdf") {
-    const qs = new URLSearchParams({
-      format,
-      source,
-      from,
-      to,
-    });
-    if (serverFilter !== "all") {
-      qs.set("server", serverFilter);
-    }
-    window.open(`/api/sales/export?${qs.toString()}`, "_blank");
-  }
+  const salesExportExtra = useMemo(() => {
+    const e: Record<string, string> = { source };
+    if (serverFilter !== "all") e.server = serverFilter;
+    return e;
+  }, [source, serverFilter]);
 
   return (
     <section className="space-y-8">
@@ -191,7 +227,7 @@ export default function FinanzasInformesPage() {
                   {source === "imported" ? "Importados (documentos)" : "Sesión actual"}
                 </strong>
                 {source === "imported" && (
-                  <span className="text-slate-500"> · {historic.recentLoadedCount} ventas cargadas</span>
+                  <span className="text-slate-500"> · {historic.exportedSaleCount} ventas en la app (semilla) · {historic.transactionCount} en el archivo</span>
                 )}
               </p>
             </div>
@@ -225,7 +261,7 @@ export default function FinanzasInformesPage() {
                   { key: "day" as const, label: "Hoy", days: 1 },
                   { key: "7" as const, label: "7 días", days: 7 },
                   { key: "15" as const, label: "15 días", days: 15 },
-                  { key: "30" as const, label: "Mes", days: 30 },
+                  { key: "30" as const, label: "30 días", days: 30 },
                 ] as const
               ).map((b) => {
                 const active = quickRange === b.key;
@@ -247,6 +283,34 @@ export default function FinanzasInformesPage() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickRange("week");
+                  applyThisWeek();
+                }}
+                className={`rounded-full px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  quickRange === "week"
+                    ? "bg-[var(--pos-primary)] text-white shadow"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Esta semana
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickRange("year");
+                  applyThisYear();
+                }}
+                className={`rounded-full px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide transition ${
+                  quickRange === "year"
+                    ? "bg-[var(--pos-primary)] text-white shadow"
+                    : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                Este año
+              </button>
             </div>
           </div>
 
@@ -297,21 +361,19 @@ export default function FinanzasInformesPage() {
               </select>
             </div>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold uppercase text-slate-700 hover:bg-slate-50"
-              onClick={() => exportSales("csv")}
-            >
-              Exportar CSV
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold uppercase text-slate-700 hover:bg-slate-50"
-              onClick={() => exportSales("pdf")}
-            >
-              Exportar PDF
-            </button>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+            <ExportCsvPeriodLinks
+              hrefBase="/api/sales/export"
+              label="Exportar CSV"
+              extraParams={{ ...salesExportExtra, format: "csv" }}
+              pickerRange={{ from, to }}
+            />
+            <ExportCsvPeriodLinks
+              hrefBase="/api/sales/export"
+              label="Exportar PDF"
+              extraParams={{ ...salesExportExtra, format: "pdf" }}
+              pickerRange={{ from, to }}
+            />
           </div>
         </div>
       </div>
@@ -337,7 +399,14 @@ export default function FinanzasInformesPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
+        <div className="mt-4">
+          <h3 className="text-sm font-extrabold uppercase text-slate-700">Cobros por medio de pago</h3>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Suma de líneas registradas en cada venta (efectivo, tarjeta, transferencia). Respeta el filtro de
+            fechas y mesero.
+          </p>
+        </div>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase text-slate-500">Efectivo</p>
             <p className="mt-1 text-xl font-black text-slate-900">{currency(byPayment.cash)}</p>
@@ -346,6 +415,28 @@ export default function FinanzasInformesPage() {
             <p className="text-xs font-bold uppercase text-slate-500">Tarjeta</p>
             <p className="mt-1 text-xl font-black text-slate-900">{currency(byPayment.card)}</p>
           </div>
+          <div className="rounded-lg border border-violet-200 bg-violet-50/50 p-4 shadow-sm">
+            <p className="text-xs font-bold uppercase text-violet-800">Transferencia</p>
+            <p className="mt-1 text-xl font-black text-violet-950">{currency(byPayment.transfer)}</p>
+          </div>
+          <div
+            className={`rounded-lg border p-4 shadow-sm ${
+              paymentsMatchRevenue
+                ? "border-emerald-200 bg-emerald-50/40"
+                : "border-amber-200 bg-amber-50/40"
+            }`}
+          >
+            <p className="text-xs font-bold uppercase text-slate-600">Suma medios</p>
+            <p className="mt-1 text-xl font-black text-slate-900">{currency(paymentsSum)}</p>
+            <p className="mt-1 text-[0.65rem] font-semibold text-slate-600">
+              {paymentsMatchRevenue
+                ? "Coincide con ingresos del rango"
+                : "Diferencia vs ingresos: revisa ventas sin desglose o datos antiguos"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-bold uppercase text-slate-500">{es.reports.topMemory}</p>
             <p className="mt-1 text-xs text-slate-500">Top productos por cantidad</p>
@@ -430,6 +521,7 @@ export default function FinanzasInformesPage() {
                   <th className="px-2 py-2">{es.reports.thTable}</th>
                   <th className="px-2 py-2">Descuento</th>
                   <th className="px-2 py-2 text-right">Total</th>
+                  <th className="min-w-[160px] px-2 py-2">Pagos</th>
                   <th className="px-2 py-2">Fecha</th>
                 </tr>
               </thead>
@@ -445,6 +537,9 @@ export default function FinanzasInformesPage() {
                         : "—"}
                     </td>
                     <td className="px-2 py-1.5 text-right font-semibold">{currency(s.total)}</td>
+                    <td className="max-w-[220px] px-2 py-1.5 text-xs font-medium text-slate-700">
+                      {salePaymentsLabel(s)}
+                    </td>
                     <td className="whitespace-nowrap px-2 py-1.5 text-xs text-zinc-500">
                       {new Date(s.createdAt).toLocaleString("es-EC")}
                     </td>

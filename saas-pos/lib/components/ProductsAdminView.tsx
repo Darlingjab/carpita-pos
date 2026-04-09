@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import { Package, Trash2 } from "lucide-react";
+import { Package, Star, Trash2 } from "lucide-react";
 import { demoCategories, demoProducts } from "@/lib/mock-data";
 import { es } from "@/lib/locale";
 import type { Product } from "@/lib/types";
@@ -127,7 +127,7 @@ export function ProductsAdminView() {
     ) {
       return;
     }
-    const ids = demoProducts
+    const ids = products
       .filter((p) => categoryNameOf(p.categoryId, demoCategories) === activeCat)
       .map((p) => p.id);
     applyOverrides((base) => {
@@ -182,6 +182,9 @@ export function ProductsAdminView() {
           {es.productsAdmin.tabDiscontinued}
         </button>
       </div>
+      <p className="border-b border-white/10 bg-[#3d3d3d] px-4 py-2 text-[0.68rem] leading-snug text-slate-300">
+        {es.productsAdmin.catalogHint}
+      </p>
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside
@@ -262,13 +265,14 @@ export function ProductsAdminView() {
 
               <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-left">
+                  <table className="w-full min-w-[760px] border-collapse text-left">
                     <thead className="border-b border-slate-200 bg-slate-50 text-[0.72rem] font-bold uppercase tracking-wide text-slate-500">
                       <tr>
                         <th className="px-3 py-3 sm:px-4">{es.productsAdmin.code}</th>
                         <th className="px-3 py-3 sm:px-4">{es.productsAdmin.name}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">{es.productsAdmin.price}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">{es.productsAdmin.cost}</th>
+                        <th className="w-24 px-2 py-3">{es.productsAdmin.posFavorite}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">
                           {isEditingCategory ? es.productsAdmin.action : es.productsAdmin.status}
                         </th>
@@ -346,6 +350,25 @@ export function ProductsAdminView() {
                             ) : (
                               `$${(p.cost ?? 0).toFixed(2)}`
                             )}
+                          </td>
+                          <td className="px-2 py-3">
+                            <button
+                              type="button"
+                              title={p.isFavorite ? es.restaurant.removeFavorite : es.restaurant.addFavorite}
+                              className={`rounded-md p-1.5 transition-colors ${
+                                p.isFavorite
+                                  ? "text-amber-500 hover:bg-amber-50"
+                                  : "text-slate-300 hover:bg-slate-100 hover:text-amber-500"
+                              }`}
+                              onClick={() =>
+                                applyOverrides((base) => ({
+                                  ...base,
+                                  [p.id]: { ...(base[p.id] || {}), isFavorite: !p.isFavorite },
+                                }))
+                              }
+                            >
+                              <Star className="h-5 w-5" fill={p.isFavorite ? "currentColor" : "none"} />
+                            </button>
                           </td>
                           <td className="px-2 py-3">
                             {isEditingCategory ? (

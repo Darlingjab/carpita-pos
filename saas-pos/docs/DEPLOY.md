@@ -52,10 +52,15 @@ Con poca RAM: `NODE_OPTIONS=--max-old-space-size=3072 npm run build`.
 
 | Variable | Obligatoria hoy | Notas |
 |----------|-----------------|--------|
-| `NEXT_PUBLIC_SUPABASE_URL` | No* (demo en memoria) | Necesaria cuando conectes Supabase real |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No* | Igual |
+| `NEXT_PUBLIC_SUPABASE_URL` | No (solo memoria) | Con URL + **service role** activa persistencia en Supabase |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | No | Puede seguir vacía si solo usas sync servidor con service role |
+| `SUPABASE_SERVICE_ROLE_KEY` | No | **Solo servidor** (Vercel env, nunca en el cliente). Sin ella no hay `pull`/`push` a la tabla `pos_runtime_state` |
 
-\* La demo usa datos en memoria y cookies de sesión mock; para clientes reales debes persistir en BD y endurecer auth.
+**Persistencia en la nube:** ejecuta en el SQL Editor de Supabase el contenido de `supabase/migrations/20250408120000_pos_runtime_state.sql` (crea la tabla y la fila `default`). Con las tres variables anteriores, cada petición autenticada sincroniza ventas, caja, cocina, clientes y usuarios contra esa fila.
+
+**Seguridad:** la *service role* ignora RLS; no la expongas en `NEXT_PUBLIC_*` ni en el navegador.
+
+Sin Supabase configurado, la app sigue en modo demo (memoria de proceso / cold starts en Vercel).
 
 ### HTTPS y cookies
 
@@ -65,41 +70,32 @@ El login demo usa la cookie `pos_demo_user`. En producción debe servirse **solo
 
 ## 4. VPS / Docker con `output: "standalone"`
 
-`next.config.ts` define `output: "standalone"`. Tras `npm run build`:
+En el repo hay un **`Dockerfile`** listo en la raíz de `saas-pos/` (multi-stage, usuario no root). Desde `saas-pos/`:
 
-- El servidor Node está en **`.next/standalone/`** (ejecutar `node server.js` desde esa estructura según la [documentación oficial de Next.js](https://nextjs.org/docs/app/building-your-application/deploying#manual-self-hosting)).
-- Debes copiar también **`public/`** y **`.next/static`** al despliegue, o los assets y el logo fallan.
-
-Ejemplo de idea (ajusta rutas en tu `Dockerfile`):
-
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM node:20-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
-EXPOSE 3000
-CMD ["node", "server.js"]
+```bash
+docker build -t carpita-pos .
+docker run -p 3000:3000 --env-file .env.production.local carpita-pos
 ```
 
-(Verifica que `server.js` exista en `standalone` y el `WORKDIR` coincida con la doc de tu versión de Next.)
+`.dockerignore` excluye `node_modules`, `.next`, CSV enormes en `exports/`, etc., para acelerar el contexto.
+
+`next.config.ts` define `output: "standalone"`. Tras `npm run build` sin Docker:
+
+- El servidor Node está en **`.next/standalone/`** (ejecutar `node server.js` según la [documentación oficial de Next.js](https://nextjs.org/docs/app/building-your-application/deploying#manual-self-hosting)).
+- Debes copiar también **`public/`** y **`.next/static`** al despliegue manual, o los assets fallan (el `Dockerfile` del repo ya los copia).
+
+### Cabeceras de seguridad
+
+En `next.config.ts` se envían `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` y `Permissions-Policy` en todas las rutas.
 
 ---
 
 ## 5. Limitaciones actuales (importante)
 
-- **Vercel / serverless:** cada **instancia** de función puede tener memoria distinta y reinicios en “cold start”. Lo que vive en **`lib/store.ts`** y **`lib/user-accounts.ts`** (memoria de proceso) **no es fiable** en producción multi-instancia: datos pueden desaparecer o no verse entre usuarios. Para uso real en la nube necesitas **base de datos** (p. ej. Supabase) y auth persistente.
+- **Vercel / serverless:** sin Supabase + `SUPABASE_SERVICE_ROLE_KEY`, cada **instancia** puede tener memoria distinta. Con persistencia activa, el estado vive en **`pos_runtime_state`** y se lee/escribe en cada request relevante (última escritura gana si dos instancias escriben a la vez; para mucha concurrencia conviene evolucionar el modelo).
 - **APIs y sesión**: el **middleware** bloquea `/api/*` sin cookie (respuesta **401** JSON), salvo `POST /api/auth/login` y `POST /api/auth/logout` y peticiones `OPTIONS`. Las rutas siguen validando usuario con `getSessionUserOrNull()` por si la cookie no corresponde a un usuario demo.
 - **Ventas por rol**: `GET /api/sales` y exportes con fuente **sesión** limitan al **cajero** a ventas donde es `createdBy` o `serverId`. El histórico **importado** solo exporta quien tenga `reports.read` (p. ej. admin).
-- **Datos**: gran parte del negocio vive en **`lib/store.ts`** (memoria de proceso). En un solo **VPS con un proceso Node** los datos duran hasta reiniciar el servicio; en **Vercel** no debes asumir memoria compartida. Para producción: migrar a Supabase u otra BD.
+- **Datos**: con env de Supabase + migración aplicada, el runtime se sincroniza con la nube; sin eso, **`lib/store.ts`** sigue siendo solo memoria de proceso.
 - **Auth**: credenciales demo (`admin@carpita` / `cajero@carpita`). Sustituir por auth real antes de exponer a usuarios finales.
 - **Next.js 16**: puede aparecer aviso de deprecación de **`middleware`** a favor de **`proxy`**; planifica migración cuando actualices según la guía de Next.
 
@@ -107,7 +103,8 @@ CMD ["node", "server.js"]
 
 ## 6. Checklist rápido el día del go-live
 
-- [ ] `npm run check` y `npm run build` verdes en CI o local
+- [ ] `npm run verify` (o `npm run check` + `npm run build`) verdes en CI o local
+- [ ] Revisión rápida de [SECURITY.md](./SECURITY.md) (secretos y variables)
 - [ ] Root directory del hosting = **`saas-pos`** si el monorepo tiene capa superior
 - [ ] Variables Supabase (si ya no usas solo mock)
 - [ ] HTTPS activo

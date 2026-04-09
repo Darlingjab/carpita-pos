@@ -6,13 +6,19 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3000",
+    "dev:3001": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
+    "verify": "npm run check && npm run build",
     "lint": "eslint",
-    "import:exports": "node scripts/sync-exports.cjs"
+    "import:exports": "node scripts/sync-exports.cjs",
+    "import:exports:full": "IMPORT_FULL_SALES=1 node scripts/sync-exports.cjs",
+    "import:fudo-md": "node scripts/import-fudo-md.cjs",
+    "import:productos": "node scripts/import-productos-xls.cjs",
+    "env:setup": "bash scripts/init-env.sh"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",

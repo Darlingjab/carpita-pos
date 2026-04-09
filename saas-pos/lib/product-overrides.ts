@@ -4,7 +4,9 @@ export const PRODUCT_OVERRIDES_KEY = "pos_product_overrides_v1";
 
 export type ProductOverride = Partial<
   Pick<Product, "name" | "price" | "cost" | "isActive" | "isSeasonal" | "isArchived" | "isFavorite">
->;
+> & {
+  favoriteColorIndex?: number;
+};
 
 export type OverrideMap = Record<string, ProductOverride>;
 
@@ -27,6 +29,10 @@ export function saveOverrides(map: OverrideMap) {
 export function mergeProduct(base: Product, overrides: OverrideMap): Product {
   const o = overrides[base.id];
   if (!o) return { ...base, cost: base.cost ?? 0 };
+  const favColor =
+    o.favoriteColorIndex !== undefined
+      ? Math.min(5, Math.max(0, Math.floor(Number(o.favoriteColorIndex) || 0)))
+      : base.favoriteColorIndex;
   return {
     ...base,
     ...o,
@@ -36,6 +42,7 @@ export function mergeProduct(base: Product, overrides: OverrideMap): Product {
     isArchived: o.isArchived !== undefined ? o.isArchived : (base.isArchived ?? false),
     isFavorite: o.isFavorite !== undefined ? o.isFavorite : base.isFavorite,
     isActive: o.isActive !== undefined ? o.isActive : base.isActive,
+    favoriteColorIndex: favColor,
   };
 }
 

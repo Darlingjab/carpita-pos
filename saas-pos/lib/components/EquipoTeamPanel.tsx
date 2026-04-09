@@ -16,6 +16,7 @@ const PERM_LABELS: Record<Permission, string> = {
   "products.manage": "Productos e inventario",
   "users.manage": "Usuarios y equipo",
   "kitchen.access": "Pantalla cocina (KDS)",
+  "favorites.manage": "Favoritos y colores (Restaurante)",
 };
 
 type UserDto = {

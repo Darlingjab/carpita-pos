@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import type { Permission } from "@/lib/types";
 import { deleteUserAccount, findRowById, toAppUser, updateUserAccount } from "@/lib/user-accounts";
@@ -53,6 +54,13 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "not_found_or_invalid" }, { status: 400 });
   }
 
+  const pushed = await pushRuntimeToCloud();
+  if (!pushed.ok) {
+    return NextResponse.json(
+      { error: "cloud_sync_failed", detail: pushed.error },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ data: rowToJson(updated, true) });
 }
 
@@ -73,5 +81,12 @@ export async function DELETE(_request: Request, ctx: { params: Promise<{ id: str
     return NextResponse.json({ error: "not_found_or_last_admin" }, { status: 400 });
   }
 
+  const pushed = await pushRuntimeToCloud();
+  if (!pushed.ok) {
+    return NextResponse.json(
+      { error: "cloud_sync_failed", detail: pushed.error },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ data: { ok: true } });
 }

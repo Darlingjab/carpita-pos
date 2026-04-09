@@ -111,7 +111,7 @@ export function TableFloorMap({
 
   return (
     <section
-      className={`flex min-h-0 flex-1 flex-col ${embedded ? "gap-2 p-2 sm:p-3" : "gap-4"}`}
+      className={`flex min-h-0 flex-1 flex-col ${embedded ? "gap-1.5 p-1.5 sm:gap-2 sm:p-3" : "gap-4"}`}
     >
       {!embedded && (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -161,11 +161,11 @@ export function TableFloorMap({
       )}
 
       {embedded && (
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => setArrangeMode((v) => !v)}
-            className={`rounded-lg px-3 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-wide ${
+            className={`rounded-md px-2 py-1 text-[0.6rem] font-extrabold uppercase tracking-wide sm:rounded-lg sm:px-3 sm:py-1.5 sm:text-[0.65rem] ${
               arrangeMode ? "text-white" : "border bg-white text-slate-800"
             }`}
             style={
@@ -179,10 +179,10 @@ export function TableFloorMap({
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1 rounded-lg border bg-white px-2.5 py-1.5 text-[0.65rem] font-bold text-slate-700"
+            className="flex items-center gap-0.5 rounded-md border bg-white px-2 py-1 text-[0.6rem] font-bold text-slate-700 sm:gap-1 sm:rounded-lg sm:px-2.5 sm:py-1.5 sm:text-[0.65rem]"
             style={{ borderColor: "var(--pos-border)" }}
           >
-            <RotateCcw className="h-3 w-3" />
+            <RotateCcw className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
             {es.mesas.resetLayout}
           </button>
         </div>
@@ -230,9 +230,12 @@ export function TableFloorMap({
                 ? "border-amber-300 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-950 shadow-md"
                 : "border-emerald-300 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-md";
 
+          const shapeRound = cell.shape === "round";
           const inner = (
             <div
-              className={`flex h-full max-h-[4.2rem] w-full max-w-[4.2rem] flex-col items-center justify-center border-2 px-0.5 py-1 text-center transition-[transform,box-shadow] sm:max-h-[4.6rem] sm:max-w-[4.6rem] ${shapeClass} ${statusClasses} ${
+              className={`flex h-[min(3.5rem,20vw)] w-[min(3.5rem,20vw)] shrink-0 flex-col items-center justify-center border-2 px-0.5 py-0.5 text-center transition-[transform,box-shadow] sm:h-[min(4.25rem,18vw)] sm:w-[min(4.25rem,18vw)] sm:py-1 ${
+                shapeRound ? "rounded-full" : shapeClass
+              } ${statusClasses} ${
                 arrangeMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer hover:brightness-[1.02]"
               }`}
               style={{ margin: "auto" }}
@@ -261,7 +264,7 @@ export function TableFloorMap({
             ) : onSelectTable ? (
               <button
                 type="button"
-                className="flex h-full min-h-0 w-full min-w-0 items-center justify-center border-0 bg-transparent p-0"
+                className="flex min-h-0 min-w-0 items-center justify-center border-0 bg-transparent p-0.5"
                 onClick={() => onSelectTable(t.id)}
               >
                 {inner}
@@ -269,7 +272,7 @@ export function TableFloorMap({
             ) : (
               <Link
                 href={`/pos?mesa=${encodeURIComponent(t.id)}`}
-                className="flex h-full min-h-0 w-full min-w-0 items-center justify-center"
+                className="flex min-h-0 min-w-0 items-center justify-center p-0.5"
               >
                 {inner}
               </Link>

@@ -5,15 +5,35 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Printer, Star, Vault } from "lucide-react";
 import { demoCategories, demoProducts } from "@/lib/mock-data";
 import { useMergedCatalog } from "@/lib/hooks/useMergedCatalog";
+import { postSaleWithOfflineQueue } from "@/lib/client/post-sale";
 import { es } from "@/lib/locale";
+import { rememberRegisterOpen, canAssumeRegisterOpenOffline } from "@/lib/register-open-snapshot";
 import { loadOverrides, saveOverrides } from "@/lib/product-overrides";
-import type { DiningTable, PaymentMethod, SaleChannel, SaleItem } from "@/lib/types";
+import type { DiningTable, PaymentMethod, Product, SaleChannel, SaleItem, SalePayment } from "@/lib/types";
 import { DiscountModal, type DiscountApplyPayload } from "@/lib/components/DiscountModal";
-import { PaymentChangeModal } from "@/lib/components/PaymentChangeModal";
+import { PaymentChangeModal, type PaymentModalResult } from "@/lib/components/PaymentChangeModal";
 import { printKitchenTicket, openCashDrawerStub } from "@/lib/print-ticket";
+import { RestaurantFavoritesAdminModal } from "@/lib/components/RestaurantFavoritesAdminModal";
+import {
+  appearanceForSlot,
+  FAVORITE_GRID_COLS_DEFAULT,
+  loadFavoriteGridColumns,
+  loadFavoriteSlotIds,
+} from "@/lib/restaurant-favorites-config";
 
 function lineId() {
   return `ln_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Si la etiqueta ya trae el prefijo (p. ej. "MESA 2"), no repetir "Mesa MESA 2". */
+function diningTableHeaderLabel(prefix: string, label: string): string {
+  const p = prefix.trim();
+  const lab = label.trim();
+  if (!lab) return p;
+  const pu = p.toUpperCase();
+  const lu = lab.toUpperCase();
+  if (lu.startsWith(`${pu} `) || lu === pu) return lab;
+  return `${p} ${lab}`.trim();
 }
 
 export type CartLine = {
@@ -46,12 +66,15 @@ type Props = {
   billingServerId: string;
   billingServerName: string;
   onCloseTable?: () => void | Promise<void>;
+  /** Permiso `favorites.manage` (admin). */
+  canConfigureFavorites?: boolean;
 };
 
 function setFavorite(productId: string, value: boolean) {
   const m = loadOverrides();
   m[productId] = { ...m[productId], isFavorite: value };
   saveOverrides(m);
+  window.dispatchEvent(new CustomEvent("pos-catalog-updated"));
 }
 
 function categoryName(id: string): string {
@@ -69,14 +92,20 @@ export function RestaurantOrderSidebar({
   billingServerId,
   billingServerName,
   onCloseTable,
+  canConfigureFavorites = false,
 }: Props) {
   const catalog = useMergedCatalog(demoProducts);
+  /** Catálogo para venta en mesa/mostrador: sin temporada (solo facilita venta actual; reportes siguen con histórico). */
+  const saleCatalog = useMemo(
+    () => catalog.filter((p) => !p.isSeasonal),
+    [catalog],
+  );
   const [search, setSearch] = useState("");
   const [discountMeta, setDiscountMeta] = useState<DiscountMeta | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cart, setCart] = useState<CartLine[]>([]);
-  /** Sección «Por categoría» colapsada por defecto. */
-  const [categoriesSectionOpen, setCategoriesSectionOpen] = useState(false);
+  /** Abierto por defecto para ver productos por categoría sin paso extra (especialmente en escritorio). */
+  const [categoriesSectionOpen, setCategoriesSectionOpen] = useState(true);
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({});
   const [registerOpen, setRegisterOpen] = useState<boolean | null>(null);
   const [discountModal, setDiscountModal] = useState(false);
@@ -90,6 +119,11 @@ export function RestaurantOrderSidebar({
   const [redeemingTier, setRedeemingTier] = useState<number | null>(null);
   const [splitModal, setSplitModal] = useState(false);
   const [pendingCharge, setPendingCharge] = useState<PendingCharge | null>(null);
+  const [favoriteSlotIds, setFavoriteSlotIds] = useState<string[] | null>(null);
+  const [favoriteGridCols, setFavoriteGridCols] = useState(FAVORITE_GRID_COLS_DEFAULT);
+  const [favAdminOpen, setFavAdminOpen] = useState(false);
+  /** Por defecto expandido; el cajero puede minimizar para ganar espacio. */
+  const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true);
   const draftKey = useMemo(() => {
     if (mode === "counter") return `pos_order_draft:counter:${counterOrderId ?? "none"}`;
     return `pos_order_draft:table:${table?.id ?? "none"}`;
@@ -100,8 +134,15 @@ export function RestaurantOrderSidebar({
   const refreshRegister = useCallback(() => {
     fetch("/api/register/status")
       .then((r) => r.json())
-      .then((d) => setRegisterOpen(!!d.data?.isOpen))
-      .catch(() => setRegisterOpen(false));
+      .then((d) => {
+        const open = !!d.data?.isOpen;
+        rememberRegisterOpen(open);
+        setRegisterOpen(open);
+      })
+      .catch(() => {
+        if (canAssumeRegisterOpenOffline()) setRegisterOpen(true);
+        else setRegisterOpen(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -109,6 +150,20 @@ export function RestaurantOrderSidebar({
     window.addEventListener("pos-register-updated", refreshRegister);
     return () => window.removeEventListener("pos-register-updated", refreshRegister);
   }, [refreshRegister]);
+
+  useEffect(() => {
+    function syncFavLayout() {
+      setFavoriteSlotIds(loadFavoriteSlotIds());
+      setFavoriteGridCols(loadFavoriteGridColumns());
+    }
+    syncFavLayout();
+    window.addEventListener("pos-restaurant-favorites-updated", syncFavLayout);
+    window.addEventListener("pos-catalog-updated", syncFavLayout);
+    return () => {
+      window.removeEventListener("pos-restaurant-favorites-updated", syncFavLayout);
+      window.removeEventListener("pos-catalog-updated", syncFavLayout);
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -127,7 +182,8 @@ export function RestaurantOrderSidebar({
       };
       setCart(Array.isArray(parsed.cart) ? parsed.cart : []);
       setDiscountMeta(parsed.discountMeta ?? null);
-      setPaymentMethod(parsed.paymentMethod === "card" ? "card" : "cash");
+      const pm = parsed.paymentMethod;
+      setPaymentMethod(pm === "card" || pm === "transfer" ? pm : "cash");
       setSearch("");
     } catch {
       setCart([]);
@@ -185,27 +241,40 @@ export function RestaurantOrderSidebar({
   const q = search.trim().toLowerCase();
   const searchHits = useMemo(() => {
     if (!q) return [];
-    return catalog.filter((p) => {
+    return saleCatalog.filter((p) => {
       if (p.isArchived || !p.isActive) return false;
       return p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q);
     }).slice(0, 20);
-  }, [catalog, q]);
+  }, [saleCatalog, q]);
 
-  const favorites = useMemo(
-    () => catalog.filter((p) => p.isFavorite && !p.isArchived && p.isActive),
-    [catalog],
-  );
+  const usingCustomFavoriteSlots = favoriteSlotIds !== null;
+
+  const favoritesWithColors = useMemo(() => {
+    if (favoriteSlotIds !== null) {
+      const out: { product: Product; colorIndex: number }[] = [];
+      for (const id of favoriteSlotIds) {
+        const p = saleCatalog.find((x) => x.id === id);
+        if (p && !p.isArchived && p.isActive) {
+          out.push({ product: p, colorIndex: p.favoriteColorIndex ?? 0 });
+        }
+      }
+      return out;
+    }
+    return saleCatalog
+      .filter((p) => p.isFavorite && !p.isArchived && p.isActive)
+      .map((product) => ({ product, colorIndex: product.favoriteColorIndex ?? 0 }));
+  }, [favoriteSlotIds, saleCatalog]);
 
   const productsByCategory = useMemo(() => {
-    const map = new Map<string, typeof catalog>();
-    for (const p of catalog) {
+    const map = new Map<string, Product[]>();
+    for (const p of saleCatalog) {
       if (p.isArchived || !p.isActive) continue;
       const list = map.get(p.categoryId) ?? [];
       list.push(p);
       map.set(p.categoryId, list);
     }
     return map;
-  }, [catalog]);
+  }, [saleCatalog]);
 
   const categoryIdsSorted = useMemo(() => {
     return [...productsByCategory.keys()].sort((a, b) =>
@@ -228,7 +297,7 @@ export function RestaurantOrderSidebar({
 
   function addProduct(productId: string) {
     if (mode === "counter" && !counterOrderId) return;
-    const product = catalog.find((p) => p.id === productId);
+    const product = saleCatalog.find((p) => p.id === productId);
     if (!product || !product.isActive) return;
     setCart((prev) => {
       const idx = prev.findIndex((l) => l.productId === productId && !l.kitchenSent);
@@ -372,7 +441,7 @@ export function RestaurantOrderSidebar({
     setRedeemingTier(null);
   }
 
-  async function submitSale(tenderedCash: number | null, forced?: PendingCharge | null) {
+  async function submitSale(pay: PaymentModalResult, forced?: PendingCharge | null) {
     const chargeParts = forced?.parts ?? cart.map((l) => ({ lineId: l.id, qty: l.qty }));
     const byId = new Map(cart.map((l) => [l.id, l] as const));
     const chargeItems = chargeParts
@@ -396,6 +465,11 @@ export function RestaurantOrderSidebar({
       mode === "table"
         ? (clientName?.trim() || es.restaurant.defaultCustomer)
         : es.restaurant.defaultCustomer;
+    const payments: SalePayment[] =
+      pay.payments.length > 0
+        ? pay.payments
+        : [{ method: paymentMethod, amount: chargeTotal }];
+
     const payload: Record<string, unknown> = {
       channel,
       tableId,
@@ -403,7 +477,7 @@ export function RestaurantOrderSidebar({
       subtotal: chargeSubtotal,
       discount: chargeDiscount,
       total: chargeTotal,
-      payments: [{ method: paymentMethod, amount: chargeTotal }],
+      payments,
       customerName: customer,
       customerId: mode === "table" ? customerId : null,
       serverId: billingServerId,
@@ -411,27 +485,23 @@ export function RestaurantOrderSidebar({
       discountPercent: discountMeta?.percent ?? null,
       discountType: discountMeta?.type ?? null,
       discountDescription: discountMeta?.description ?? null,
-      tenderedCash: null as number | null,
-      changeGiven: null as number | null,
+      tenderedCash: pay.tenderedCash,
+      changeGiven: pay.changeGiven,
     };
-    if (paymentMethod === "cash" && tenderedCash != null) {
-      payload.tenderedCash = tenderedCash;
-      payload.changeGiven = Math.max(0, tenderedCash - chargeTotal);
-    }
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      if (data.error === "register_closed") {
-        window.alert(data.message ?? es.orderFlow.registerClosed);
+    const result = await postSaleWithOfflineQueue(payload);
+    if (result.kind === "error") {
+      if (result.error === "register_closed") {
+        window.alert(result.message ?? es.orderFlow.registerClosed);
         refreshRegister();
       } else {
-        window.alert("No se pudo registrar la venta.");
+        window.alert(result.message ?? "No se pudo registrar la venta.");
       }
       return;
+    }
+    if (result.kind === "queued") {
+      window.alert(es.offline.saleQueued);
+    } else {
+      window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     }
     const allCharged = cart.every((line) => {
       const picked = chargeParts.find((p) => p.lineId === line.id);
@@ -456,7 +526,6 @@ export function RestaurantOrderSidebar({
     } catch {
       // ignore localStorage failures
     }
-    window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     if (mode === "table" && table && onCloseTable && allCharged) {
       if (window.confirm(es.orderFlow.askCloseTable)) {
         await onCloseTable();
@@ -482,7 +551,7 @@ export function RestaurantOrderSidebar({
     mode === "counter"
       ? es.restaurant.counterHeader
       : table
-        ? `${es.restaurant.tablePrefix} ${table.label}`
+        ? diningTableHeaderLabel(es.restaurant.tablePrefix, table.label)
         : es.restaurant.noTableHeader;
 
   const canSendKitchen =
@@ -496,7 +565,7 @@ export function RestaurantOrderSidebar({
   const counterBlocked = mode === "counter" && !counterOrderId;
 
   return (
-    <aside className="flex h-full min-h-0 w-full flex-col bg-white">
+    <aside className="flex h-full min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
       {discountModal && (
         <DiscountModal
           subtotal={subtotal}
@@ -506,11 +575,12 @@ export function RestaurantOrderSidebar({
       )}
       {paymentModal && (
         <PaymentChangeModal
+          key={`${pendingCharge?.total ?? total}-${pendingCharge?.label ?? "full"}`}
           total={pendingCharge?.total ?? total}
-          paymentMethod={paymentMethod}
-          onConfirm={(tendered) => {
+          defaultMethod={paymentMethod}
+          onConfirm={(result) => {
             void (async () => {
-              await submitSale(tendered, pendingCharge);
+              await submitSale(result, pendingCharge);
             })();
           }}
           onSplit={
@@ -542,25 +612,65 @@ export function RestaurantOrderSidebar({
         />
       )}
 
+      <RestaurantFavoritesAdminModal
+        open={favAdminOpen}
+        onClose={() => setFavAdminOpen(false)}
+        saleCatalog={saleCatalog}
+      />
+
       <header
-        className="shrink-0 px-2 py-1.5 text-white"
+        className="shrink-0 px-2 py-1.5 text-white max-lg:py-1 lg:py-1.5"
         style={{ backgroundColor: "#c41e1e" }}
       >
-        <div className="flex flex-wrap items-start justify-between gap-1">
-          <div className="min-w-0 flex-1">
-            <h2 className="text-xs font-black uppercase tracking-wide">{headerTitle}</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div
+            className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5"
+            role="group"
+            aria-label="Mesa, cliente y mesero"
+          >
+            <h2
+              className="m-0 inline-flex max-w-full shrink-0 items-center rounded-md border border-white/35 bg-white/12 px-2 py-1 text-[0.58rem] font-black uppercase leading-none tracking-wide text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]"
+              title={headerTitle}
+            >
+              <span className="truncate">{headerTitle}</span>
+            </h2>
             {mode === "table" && table && (
-              <div className="mt-0.5 space-y-0.5 text-[0.6rem] font-semibold text-white/95">
-                <p>
-                  {es.restaurant.customerLabel}: {clientName ?? es.restaurant.defaultCustomer}
-                </p>
-                {serverName && <p>Mesero: {serverName}</p>}
-              </div>
+              <>
+                <span
+                  className="inline-flex max-w-[min(100%,14rem)] min-w-0 items-center rounded-md border border-white/35 bg-white/12 px-2 py-1 text-[0.58rem] font-bold leading-tight text-white/95 shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]"
+                  title={`${es.restaurant.customerLabel}: ${clientName ?? es.restaurant.defaultCustomer}`}
+                >
+                  <span className="truncate">
+                    <span className="font-extrabold text-white/70">{es.restaurant.customerLabel}</span>
+                    <span className="mx-0.5 text-white/40">·</span>
+                    <span className="font-semibold">{clientName ?? es.restaurant.defaultCustomer}</span>
+                  </span>
+                </span>
+                {serverName ? (
+                  <span
+                    className="inline-flex max-w-[min(100%,12rem)] min-w-0 items-center rounded-md border border-white/35 bg-white/12 px-2 py-1 text-[0.58rem] font-bold leading-tight text-white/95 shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]"
+                    title={`Mesero: ${serverName}`}
+                  >
+                    <span className="truncate">
+                      <span className="font-extrabold text-white/70">Mesero</span>
+                      <span className="mx-0.5 text-white/40">·</span>
+                      <span className="font-semibold">{serverName}</span>
+                    </span>
+                  </span>
+                ) : null}
+              </>
             )}
             {mode === "counter" && (
-              <p className="mt-0.5 text-[0.6rem] text-white/90">
-                {es.restaurant.customerLabel}: {es.restaurant.defaultCustomer}
-              </p>
+              <span
+                className="inline-flex max-w-full min-w-0 items-center rounded-md border border-white/35 bg-white/12 px-2 py-1 text-[0.58rem] font-bold leading-tight text-white/90 shadow-[inset_0_1px_0_rgb(255_255_255/0.12)]"
+                title={`${es.restaurant.customerLabel}: ${es.restaurant.defaultCustomer}`}
+              >
+                <span className="truncate">
+                  <span className="font-extrabold text-white/70">{es.restaurant.customerLabel}</span>
+                  <span className="mx-0.5 text-white/40">·</span>
+                  <span>{es.restaurant.defaultCustomer}</span>
+                </span>
+              </span>
             )}
           </div>
           <div className="flex shrink-0 gap-0.5">
@@ -630,11 +740,11 @@ export function RestaurantOrderSidebar({
         </div>
       )}
 
-      <div className="shrink-0 border-b border-slate-100 px-2 py-1.5">
+      <div className="shrink-0 border-b border-slate-100 px-2 py-1 max-lg:py-1">
         <input
           type="search"
           placeholder={es.restaurant.searchProduct}
-          className="input-base w-full rounded border px-1.5 py-1 text-xs"
+          className="input-base w-full rounded border px-1.5 py-1 text-xs max-lg:py-0.5"
           style={{ borderColor: "var(--pos-border)" }}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -659,16 +769,18 @@ export function RestaurantOrderSidebar({
                   <span className="block truncate">{p.name}</span>
                   <span className="text-[0.55rem] text-slate-500">${p.price.toFixed(2)}</span>
                 </button>
-                <button
-                  type="button"
-                  title={p.isFavorite ? es.restaurant.removeFavorite : es.restaurant.addFavorite}
-                  className={`shrink-0 rounded p-0.5 ${
-                    p.isFavorite ? "text-amber-500" : "text-slate-300 hover:text-amber-500"
-                  }`}
-                  onClick={() => setFavorite(p.id, !p.isFavorite)}
-                >
-                  <Star className="h-3 w-3" fill={p.isFavorite ? "currentColor" : "none"} />
-                </button>
+                {!usingCustomFavoriteSlots && (
+                  <button
+                    type="button"
+                    title={p.isFavorite ? es.restaurant.removeFavorite : es.restaurant.addFavorite}
+                    className={`shrink-0 rounded p-0.5 ${
+                      p.isFavorite ? "text-amber-500" : "text-slate-300 hover:text-amber-500"
+                    }`}
+                    onClick={() => setFavorite(p.id, !p.isFavorite)}
+                  >
+                    <Star className="h-3 w-3" fill={p.isFavorite ? "currentColor" : "none"} />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -689,158 +801,228 @@ export function RestaurantOrderSidebar({
           <p>{es.orderFlow.selectCounter}</p>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="max-h-[min(34vh,240px)] shrink-0 overflow-y-auto border-b border-slate-100">
-            {favorites.length > 0 && (
-              <div className="border-b border-slate-50">
-                <p className="flex w-full items-center gap-1 px-2 py-1 text-left text-[0.6rem] font-extrabold uppercase text-slate-600">
-                  <Star className="h-3 w-3 shrink-0 text-amber-500" fill="currentColor" aria-hidden />
-                  {es.pos.favorites}
-                </p>
-                <div className="grid grid-cols-5 gap-0.5 px-1 pb-1.5">
-                  {favorites.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className={`${chipBtn} border-amber-200/70 bg-amber-50/80 min-h-[2.6rem]`}
-                      onClick={() => addProduct(p.id)}
-                      title={p.name}
-                      disabled={counterBlocked}
-                    >
-                      <span className="line-clamp-3">{p.name}</span>
-                      <span className="block text-[0.5rem] text-slate-600">${p.price.toFixed(2)}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="border-b border-slate-50">
-              <button
-                type="button"
-                className="flex w-full items-center gap-1 px-2 py-1 text-left text-[0.6rem] font-extrabold uppercase text-slate-500"
-                onClick={() => setCategoriesSectionOpen((v) => !v)}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:min-h-0">
+            <div className="flex min-h-[9rem] flex-[5] basis-0 flex-col gap-1.5 overflow-hidden border-b border-slate-100 px-1 pb-1 [-webkit-overflow-scrolling:touch] max-lg:max-h-[52dvh] lg:min-h-[14rem]">
+              <section
+                className="flex min-h-0 flex-[2] basis-0 flex-col overflow-hidden rounded-lg border border-slate-200/90 bg-slate-50/80 shadow-sm"
+                aria-labelledby="restaurant-favorites-heading"
               >
-                {categoriesSectionOpen ? (
-                  <ChevronDown className="h-3 w-3 shrink-0" />
-                ) : (
-                  <ChevronRight className="h-3 w-3 shrink-0" />
-                )}
-                <span className="truncate">{es.restaurant.categoriesSection}</span>
-                <span className="ml-auto text-[0.55rem] font-normal text-slate-400 tabular-nums">
-                  {categoryIdsSorted.reduce((n, id) => n + (productsByCategory.get(id)?.length ?? 0), 0)}
-                </span>
-              </button>
-              {categoriesSectionOpen &&
-                categoryIdsSorted.map((catId) => {
-                  const prods = productsByCategory.get(catId);
-                  if (!prods?.length) return null;
-                  const open = expandedCats[catId] ?? false;
-                  return (
-                    <div key={catId} className="border-t border-slate-50">
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-1 px-2 py-0.5 text-left text-[0.6rem] font-bold text-slate-700"
-                        onClick={() => setExpandedCats((prev) => ({ ...prev, [catId]: !open }))}
+                <div className="flex shrink-0 items-center gap-1.5 border-b border-slate-200/80 bg-white/50 px-2 py-1">
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-1 rounded-md py-0.5 text-left text-[0.6rem] font-extrabold uppercase text-slate-600 hover:bg-white/80"
+                    onClick={() => setFavoritesSectionOpen((v) => !v)}
+                    aria-expanded={favoritesSectionOpen}
+                    aria-controls="restaurant-favorites-panel"
+                    id="restaurant-favorites-heading"
+                    title={favoritesSectionOpen ? es.restaurant.favoritesHide : es.restaurant.favoritesShow}
+                  >
+                    {favoritesSectionOpen ? (
+                      <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" aria-hidden />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 shrink-0 text-slate-500" aria-hidden />
+                    )}
+                    <Star className="h-3 w-3 shrink-0 text-amber-500" fill="currentColor" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate">{es.pos.favorites}</span>
+                    {favoritesWithColors.length > 0 && (
+                      <span className="shrink-0 rounded border border-slate-200/80 bg-white px-1 py-px text-[0.55rem] font-semibold normal-case tabular-nums text-slate-500">
+                        {favoritesWithColors.length}
+                      </span>
+                    )}
+                  </button>
+                  {canConfigureFavorites && (
+                    <button
+                      type="button"
+                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[0.6rem] font-extrabold uppercase text-slate-700 shadow-sm hover:bg-slate-50"
+                      onClick={() => setFavAdminOpen(true)}
+                    >
+                      {es.restaurant.favoritesEdit}
+                    </button>
+                  )}
+                </div>
+                {favoritesSectionOpen ? (
+                  <div
+                    id="restaurant-favorites-panel"
+                    role="region"
+                    className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable] px-1 py-1"
+                  >
+                    {favoritesWithColors.length === 0 ? (
+                      <p className="px-1 py-2 text-[0.6rem] text-slate-500">{es.restaurant.favoritesNoItems}</p>
+                    ) : (
+                      <div
+                        className="grid gap-1 overflow-x-hidden lg:gap-0.5"
+                        style={{
+                          gridTemplateColumns: `repeat(${favoriteGridCols}, minmax(0, 1fr))`,
+                        }}
                       >
-                        {open ? (
-                          <ChevronDown className="h-3 w-3 shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3 shrink-0" />
-                        )}
-                        <span className="truncate">{categoryName(catId)}</span>
-                        <span className="ml-auto text-[0.55rem] font-normal text-slate-400">
-                          {prods.length}
-                        </span>
-                      </button>
-                      {open && (
-                        <div className="grid grid-cols-5 gap-0.5 px-1 pb-1">
-                          {prods.map((p) => (
+                        {favoritesWithColors.map(({ product: p, colorIndex }) => {
+                          const col = appearanceForSlot(colorIndex);
+                          return (
                             <button
                               key={p.id}
                               type="button"
-                              className={`${chipBtn} min-h-[2.5rem] ${
-                                p.isFavorite ? "border-amber-200/70 bg-amber-50/80" : ""
-                              }`}
-                              title={p.name}
+                              className={`${chipBtn} min-h-[2.6rem] min-w-0 border-2 px-0.5 py-0.5 text-[0.52rem] leading-tight sm:text-[0.55rem] max-lg:min-h-[2.25rem] lg:min-h-[2.6rem] lg:px-0.5 lg:text-[0.58rem] lg:leading-[1.08] w-full`}
+                              style={{
+                                backgroundColor: col.background,
+                                borderColor: col.border,
+                                color: col.text,
+                              }}
                               onClick={() => addProduct(p.id)}
+                              title={p.name}
                               disabled={counterBlocked}
                             >
-                              <span className="line-clamp-3">{p.name}</span>
-                              <span className="block text-[0.5rem] text-slate-600">${p.price.toFixed(2)}</span>
+                              <span className="line-clamp-2 lg:line-clamp-3">{p.name}</span>
+                              <span className="block text-[0.48rem] opacity-80 max-lg:mt-px lg:text-[0.5rem]">
+                                ${p.price.toFixed(2)}
+                              </span>
                             </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </section>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
-            <p className="text-[0.6rem] font-extrabold uppercase text-slate-500">{es.pos.cart}</p>
-            <ul className="mt-1 space-y-1">
-              {cart.map((line) => (
-                <li
-                  key={line.id}
-                  className={`flex items-center gap-1 rounded border px-1 py-0.5 ${
-                    line.kitchenSent
-                      ? "border-emerald-100 bg-emerald-50/60"
-                      : "border-slate-100 bg-slate-50/90"
-                  }`}
+              <section
+                className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden rounded-lg border border-slate-200/90 bg-white shadow-sm"
+                aria-labelledby="restaurant-categories-heading"
+              >
+                <button
+                  type="button"
+                  id="restaurant-categories-heading"
+                  className="flex w-full shrink-0 items-center gap-1 border-b border-slate-100 bg-slate-50/40 px-2 py-1 text-left text-[0.6rem] font-extrabold uppercase text-slate-600 hover:bg-slate-50/90"
+                  onClick={() => setCategoriesSectionOpen((v) => !v)}
+                  aria-expanded={categoriesSectionOpen}
+                  aria-controls="restaurant-categories-panel"
                 >
-                  <div className="flex items-center rounded bg-white shadow-sm">
-                    <button
-                      type="button"
-                      className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
-                      disabled={line.kitchenSent}
-                      onClick={() => setQty(line.id, line.qty - 1)}
-                    >
-                      −
-                    </button>
-                    <span className="min-w-[1rem] text-center text-[0.6rem] font-bold tabular-nums">
-                      {line.qty}
-                    </span>
-                    <button
-                      type="button"
-                      className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
-                      disabled={line.kitchenSent}
-                      onClick={() => setQty(line.id, line.qty + 1)}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[0.65rem] font-medium leading-tight">
-                      {line.name}{" "}
-                      <span className="text-[0.5rem] font-normal text-slate-400">
-                        {line.kitchenSent ? `· ${es.orderFlow.sentKitchen}` : `· ${es.orderFlow.linePending}`}
-                      </span>
-                    </p>
-                    <p className="text-[0.55rem] text-slate-500">
-                      ${(line.qty * line.unitPrice).toFixed(2)}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="shrink-0 px-0.5 text-[0.65rem] font-bold text-red-600 disabled:opacity-20"
-                    disabled={line.kitchenSent}
-                    onClick={() => removeLine(line.id)}
+                  {categoriesSectionOpen ? (
+                    <ChevronDown className="h-3 w-3 shrink-0 text-slate-500" aria-hidden />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 shrink-0 text-slate-500" aria-hidden />
+                  )}
+                  <span className="min-w-0 flex-1 truncate">{es.restaurant.categoriesSection}</span>
+                  <span className="shrink-0 rounded border border-slate-200/80 bg-white px-1 py-px text-[0.55rem] font-normal tabular-nums text-slate-500">
+                    {categoryIdsSorted.reduce((n, id) => n + (productsByCategory.get(id)?.length ?? 0), 0)}
+                  </span>
+                </button>
+                {categoriesSectionOpen ? (
+                  <div
+                    id="restaurant-categories-panel"
+                    role="region"
+                    className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]"
                   >
-                    ×
-                  </button>
-                </li>
-              ))}
-            </ul>
-            {cart.length === 0 && (
-              <p className="mt-2 text-[0.65rem] text-slate-400">{es.pos.emptyCart}</p>
-            )}
-          </div>
+                    {categoryIdsSorted.map((catId) => {
+                      const prods = productsByCategory.get(catId);
+                      if (!prods?.length) return null;
+                      const open = expandedCats[catId] ?? false;
+                      return (
+                        <div key={catId} className="border-t border-slate-100">
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-1 px-2 py-0.5 text-left text-[0.6rem] font-bold text-slate-700 hover:bg-slate-50/80"
+                            onClick={() => setExpandedCats((prev) => ({ ...prev, [catId]: !open }))}
+                          >
+                            {open ? (
+                              <ChevronDown className="h-3 w-3 shrink-0" aria-hidden />
+                            ) : (
+                              <ChevronRight className="h-3 w-3 shrink-0" aria-hidden />
+                            )}
+                            <span className="truncate">{categoryName(catId)}</span>
+                            <span className="ml-auto text-[0.55rem] font-normal text-slate-400">{prods.length}</span>
+                          </button>
+                          {open && (
+                            <div className="flex gap-0.5 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch] max-lg:px-1 lg:grid lg:grid-cols-6 lg:overflow-visible lg:px-1">
+                              {prods.map((p) => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className={`${chipBtn} min-h-[2.5rem] max-lg:min-w-[4.75rem] max-lg:shrink-0 ${
+                                    p.isFavorite ? "border-amber-200/70 bg-amber-50/80" : ""
+                                  }`}
+                                  title={p.name}
+                                  onClick={() => addProduct(p.id)}
+                                  disabled={counterBlocked}
+                                >
+                                  <span className="line-clamp-3">{p.name}</span>
+                                  <span className="block text-[0.5rem] text-slate-600">${p.price.toFixed(2)}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </section>
+            </div>
+
+            <div className="flex min-h-[8rem] flex-[2] basis-0 flex-col overflow-hidden border-t border-slate-100 px-2 py-1.5 lg:min-h-[10rem] lg:border-t-0">
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [-webkit-overflow-scrolling:touch] [scrollbar-gutter:stable]">
+                <ul className="space-y-1.5 pb-2" aria-label={es.pos.cart}>
+                  {cart.map((line) => (
+                    <li
+                      key={line.id}
+                      className={`flex items-center gap-1 rounded border px-1 py-0.5 ${
+                        line.kitchenSent
+                          ? "border-emerald-100 bg-emerald-50/60"
+                          : "border-slate-100 bg-slate-50/90"
+                      }`}
+                    >
+                      <div className="flex items-center rounded bg-white shadow-sm">
+                        <button
+                          type="button"
+                          className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
+                          disabled={line.kitchenSent}
+                          onClick={() => setQty(line.id, line.qty - 1)}
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[1rem] text-center text-[0.6rem] font-bold tabular-nums">
+                          {line.qty}
+                        </span>
+                        <button
+                          type="button"
+                          className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
+                          disabled={line.kitchenSent}
+                          onClick={() => setQty(line.id, line.qty + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[0.65rem] font-medium leading-tight">
+                          {line.name}{" "}
+                          <span className="text-[0.5rem] font-normal text-slate-400">
+                            {line.kitchenSent ? `· ${es.orderFlow.sentKitchen}` : `· ${es.orderFlow.linePending}`}
+                          </span>
+                        </p>
+                        <p className="text-[0.55rem] text-slate-500">
+                          ${(line.qty * line.unitPrice).toFixed(2)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="min-h-8 min-w-8 shrink-0 rounded-md border border-red-200 bg-red-50 px-1.5 text-base font-black leading-none text-red-700 disabled:opacity-25 sm:min-h-10 sm:min-w-10 sm:px-2 sm:text-lg"
+                        disabled={line.kitchenSent}
+                        onClick={() => removeLine(line.id)}
+                        aria-label="Quitar línea"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {cart.length === 0 && (
+                  <p className="mt-2 text-[0.65rem] text-slate-400">{es.pos.emptyCart}</p>
+                )}
+              </div>
+            </div>
         </div>
       )}
 
-      <div className="shrink-0 border-t border-slate-200 bg-slate-50/90 px-2 py-2">
+      <div className="sticky bottom-0 z-20 shrink-0 border-t border-slate-200 bg-slate-50 px-2 py-2 shadow-[0_-6px_16px_-4px_rgb(15_23_42/0.12)] supports-[backdrop-filter]:bg-slate-50/95 supports-[backdrop-filter]:backdrop-blur-sm">
         {mode === "table" && !table ? null : counterBlocked ? null : (
           <>
             {mode === "table" && table && (
@@ -879,6 +1061,7 @@ export function RestaurantOrderSidebar({
               >
                 <option value="cash">{es.pos.cash}</option>
                 <option value="card">{es.pos.card}</option>
+                <option value="transfer">{es.pos.transfer}</option>
               </select>
             </div>
             <div className="mt-1 flex items-baseline justify-between border-t border-slate-200 pt-1">
@@ -910,6 +1093,16 @@ export function RestaurantOrderSidebar({
                 {es.orderFlow.sendKitchen}
               </button>
             </div>
+            {cart.length > 0 && (
+              <button
+                type="button"
+                disabled={!canCharge}
+                className="mt-1 w-full rounded-lg border border-slate-300 bg-white py-1.5 text-[0.6rem] font-extrabold uppercase text-slate-800 disabled:opacity-40"
+                onClick={() => setSplitModal(true)}
+              >
+                {es.orderFlow.partialCheckout}
+              </button>
+            )}
           </>
         )}
       </div>

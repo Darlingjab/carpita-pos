@@ -1,0 +1,17 @@
+# Build context = carpeta saas-pos (docker build -f Dockerfile .)
+node_modules
+.next
+out
+.git
+.gitignore
+*.md
+!README.md
+.env
+.env.*
+!.env.example
+.vercel
+coverage
+*.tsbuildinfo
+exports/*.csv
+exports/*.xlsx
+exports/*.xls

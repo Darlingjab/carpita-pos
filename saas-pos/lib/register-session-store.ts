@@ -15,3 +15,12 @@ export function setRegisterOpened(amount: number) {
 export function setRegisterClosed() {
   registerOpen = false;
 }
+
+export function getRegisterSessionSnapshot() {
+  return { isOpen: registerOpen, openingFloat } as const;
+}
+
+export function setRegisterSessionSnapshot(isOpen: boolean, float: number) {
+  registerOpen = isOpen;
+  openingFloat = Math.max(0, float);
+}

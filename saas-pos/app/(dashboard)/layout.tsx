@@ -7,6 +7,7 @@ import { formatRole } from "@/lib/locale";
 import { RoleGate } from "@/lib/components/RoleGate";
 import { RegisterClosedNoticeModal } from "@/lib/components/RegisterClosedNoticeModal";
 import { OfflineProtection } from "@/lib/components/OfflineProtection";
+import { OfflineSalesSync } from "@/lib/components/OfflineSalesSync";
 import { defaultDashboardPath } from "@/lib/role-access";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -47,8 +48,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </div>
       </header>
       <RegisterClosedNoticeModal />
+      <OfflineSalesSync />
       <OfflineProtection />
-      <main className="mx-auto min-h-0 w-full max-w-[1800px] flex-1 overflow-x-auto p-3 sm:p-4">
+      <main className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 flex-col overflow-x-auto p-3 sm:p-4">
         <RoleGate role={user.role} enabled={user.enabled !== false}>
           {children}
         </RoleGate>

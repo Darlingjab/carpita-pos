@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DiningTable, KitchenTicket, RoleName } from "@/lib/types";
 import { es } from "@/lib/locale";
@@ -26,6 +26,8 @@ export type RestaurantCurrentUser = {
 type Props = {
   tables: DiningTable[];
   currentUser: RestaurantCurrentUser;
+  /** Permiso `favorites.manage` (solo rol admin por defecto). */
+  canConfigureFavorites?: boolean;
 };
 
 type TableSession = { tableId: string; clientName: string; customerId: string | null };
@@ -39,6 +41,7 @@ type CounterOrder = {
 export function RestaurantPageClient({
   tables,
   currentUser,
+  canConfigureFavorites = false,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -53,6 +56,9 @@ export function RestaurantPageClient({
   const [activeCounterId, setActiveCounterId] = useState<string | null>(null);
   const [registerOpen, setRegisterOpen] = useState<boolean | null>(null);
   const [kitchenTickets, setKitchenTickets] = useState<KitchenTicket[]>([]);
+  /** En móvil: alternar plano de mesas o panel de pedido a pantalla completa. */
+  const [mobileMesasPane, setMobileMesasPane] = useState<"floor" | "order">("floor");
+  const prevSessionTableRef = useRef<string | null>(null);
 
   const syncAssignments = useCallback(() => {
     setAssignments(loadTableAssignments());
@@ -117,6 +123,20 @@ export function RestaurantPageClient({
   }, [searchParams, tables, syncUrl]);
 
   const activeVisualId = modalTableId ?? session?.tableId ?? null;
+
+  useEffect(() => {
+    if (sub !== "mesas") return;
+    const id = session?.tableId ?? null;
+    if (!id) {
+      setMobileMesasPane("floor");
+      prevSessionTableRef.current = null;
+      return;
+    }
+    if (prevSessionTableRef.current !== id) {
+      setMobileMesasPane("order");
+      prevSessionTableRef.current = id;
+    }
+  }, [session?.tableId, sub]);
 
   const onTablePress = useCallback(
     (id: string) => {
@@ -246,7 +266,7 @@ export function RestaurantPageClient({
   }, [kitchenTickets, assignments]);
 
   return (
-    <div className="flex min-h-[min(720px,calc(100dvh-7rem))] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex max-h-[calc(100dvh-7rem)] min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:min-h-0 lg:max-h-[calc(100dvh-4.25rem)]">
       {modalTable && (
         <OpenTableModal
           table={modalTable}
@@ -295,7 +315,7 @@ export function RestaurantPageClient({
           {es.restaurant.subCounter}
         </button>
         {sub === "mesas" && (
-          <div className="ml-auto flex min-w-[140px] max-w-[220px] flex-1 sm:max-w-xs">
+          <div className="ml-auto flex min-w-[120px] max-w-[220px] flex-1 sm:max-w-xs">
             <input
               type="search"
               placeholder={es.restaurant.goToTable}
@@ -320,8 +340,47 @@ export function RestaurantPageClient({
         )}
       </div>
 
-      <div className="flex min-h-[480px] flex-1 flex-col lg:min-h-0 lg:flex-row">
-        <div className="flex min-h-[280px] min-w-0 flex-[2] flex-col border-b border-slate-200 lg:min-h-0 lg:border-b-0 lg:border-r">
+      {sub === "mesas" && (
+        <div
+          className="flex gap-1 border-b border-slate-200 bg-slate-100 px-2 py-1 lg:hidden"
+          role="tablist"
+          aria-label={es.restaurant.subMesas}
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileMesasPane === "floor"}
+            onClick={() => setMobileMesasPane("floor")}
+            className={`min-h-9 flex-1 rounded-md px-2 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-wide ${
+              mobileMesasPane === "floor"
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-600 hover:bg-white/70"
+            }`}
+          >
+            {es.restaurant.mobileTabFloor}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mobileMesasPane === "order"}
+            onClick={() => setMobileMesasPane("order")}
+            className={`min-h-9 flex-1 rounded-md px-2 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-wide ${
+              mobileMesasPane === "order"
+                ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200"
+                : "text-slate-600 hover:bg-white/70"
+            }`}
+          >
+            {es.restaurant.mobileTabOrder}
+          </button>
+        </div>
+      )}
+
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row lg:items-stretch">
+        <div
+          className={`flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border-b border-slate-200 max-lg:min-h-0 max-lg:flex-1 lg:max-h-full lg:min-h-0 lg:flex-[9] lg:border-b-0 lg:border-r ${
+            sub === "mesas" && mobileMesasPane === "order" ? "max-lg:hidden" : ""
+          }`}
+        >
           {sub === "mesas" ? (
             <TableFloorMap
               tables={tables}
@@ -420,7 +479,11 @@ export function RestaurantPageClient({
             </div>
           )}
         </div>
-        <div className="flex h-[min(92dvh,720px)] w-full min-w-0 flex-1 flex-col border-t border-slate-200 lg:h-auto lg:max-w-none lg:min-h-0 lg:min-w-[320px] lg:border-l lg:border-t-0 lg:flex-[1]">
+        <div
+          className={`flex h-full min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden border-t border-slate-200 lg:min-h-0 lg:min-w-[340px] lg:border-l lg:border-t-0 lg:flex-[7] ${
+            sub === "mesas" && mobileMesasPane === "floor" ? "max-lg:hidden" : ""
+          }`}
+        >
           <RestaurantOrderSidebar
             mode={sub === "mostrador" ? "counter" : "table"}
             table={sub === "mostrador" ? null : selectedTableEntity}
@@ -448,6 +511,7 @@ export function RestaurantPageClient({
                 : assignments[session.tableId]?.serverName ?? currentUser.fullName
             }
             onCloseTable={closeTable}
+            canConfigureFavorites={canConfigureFavorites}
           />
         </div>
       </div>

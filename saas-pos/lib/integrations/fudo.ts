@@ -10,4 +10,4 @@
  */
 
 export const FUDO_EXPORT_HINT =
-  "Exporta productos y ventas desde Fu.do y coloca los archivos en la carpeta `exports/`, luego ejecuta `npm run import:exports`.";
+  "Colocá `exports/productos 2.xls` y ejecutá `npm run import:productos` (o `npm run import:exports` con ventas en exports/). Exportá ventas a `exports/` para regenerar histórico y ventas de prueba. Opcional: menú desde markdown con `npm run import:fudo-md`.";

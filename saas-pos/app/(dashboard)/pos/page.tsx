@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { demoProducts, demoTables } from "@/lib/mock-data";
 import { useMergedCatalog } from "@/lib/hooks/useMergedCatalog";
+import { postSaleWithOfflineQueue } from "@/lib/client/post-sale";
 import { es } from "@/lib/locale";
+import {
+  rememberRegisterOpen,
+  canAssumeRegisterOpenOffline,
+} from "@/lib/register-open-snapshot";
 import { PaymentMethod, SaleChannel } from "@/lib/types";
 
 type CartLine = { productId: string; name: string; qty: number; unitPrice: number };
@@ -13,6 +18,7 @@ type CartLine = { productId: string; name: string; qty: number; unitPrice: numbe
 function PosContent() {
   const searchParams = useSearchParams();
   const catalog = useMergedCatalog(demoProducts);
+  const saleCatalog = useMemo(() => catalog.filter((p) => !p.isSeasonal), [catalog]);
   const [channel, setChannel] = useState<SaleChannel>("counter");
   const [selectedTable, setSelectedTable] = useState<string>("");
   const [discount, setDiscount] = useState(0);
@@ -32,7 +38,7 @@ function PosContent() {
   const searchHits = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [];
-    return catalog.filter((p) => {
+    return saleCatalog.filter((p) => {
       if (p.isArchived) return false;
       if (!showInactive && !p.isActive) return false;
       return (
@@ -40,16 +46,16 @@ function PosContent() {
         p.sku.toLowerCase().includes(q)
       );
     });
-  }, [catalog, search, showInactive]);
+  }, [saleCatalog, search, showInactive]);
 
   const favorites = useMemo(
     () =>
-      catalog.filter((p) => {
+      saleCatalog.filter((p) => {
         if (p.isArchived) return false;
         if (!showInactive && !p.isActive) return false;
         return p.isFavorite;
       }),
-    [catalog, showInactive],
+    [saleCatalog, showInactive],
   );
 
   const selectedTableLabel = useMemo(
@@ -64,7 +70,7 @@ function PosContent() {
   const total = Math.max(0, subtotal - discount);
 
   function addProduct(productId: string) {
-    const product = catalog.find((p) => p.id === productId);
+    const product = saleCatalog.find((p) => p.id === productId);
     if (!product || !product.isActive) return;
     setCart((prev) => {
       const existing = prev.find((line) => line.productId === productId);
@@ -78,8 +84,28 @@ function PosContent() {
   }
 
   async function checkout() {
-    const reg = await fetch("/api/register/status").then((r) => r.json());
-    if (!reg.data?.isOpen) {
+    let regOpen = false;
+    try {
+      const reg = await fetch("/api/register/status").then((r) => r.json());
+      regOpen = !!reg?.data?.isOpen;
+      rememberRegisterOpen(regOpen);
+    } catch {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        regOpen = canAssumeRegisterOpenOffline();
+        if (!regOpen) {
+          window.alert(es.offline.needRegisterOnline);
+          return;
+        }
+      } else if (canAssumeRegisterOpenOffline()) {
+        regOpen = true;
+      } else {
+        window.alert(
+          "No se pudo comprobar la caja. Revisa la conexión o abre Ventas → Arqueos.",
+        );
+        return;
+      }
+    }
+    if (!regOpen) {
       window.alert(
         "La caja está cerrada. Ve a Ventas → Arqueos para abrir caja con dinero base.",
       );
@@ -101,12 +127,18 @@ function PosContent() {
       payments: [{ method: paymentMethod, amount: total }],
       customerName: es.restaurant.defaultCustomer,
     };
-    const res = await fetch("/api/sales", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (res.ok) {
+    const result = await postSaleWithOfflineQueue(payload);
+    if (result.kind === "error") {
+      if (result.error === "register_closed") {
+        window.alert(result.message ?? "La caja está cerrada.");
+      } else {
+        window.alert(result.message ?? "No se pudo registrar la venta.");
+      }
+      return;
+    }
+    if (result.kind === "queued") {
+      window.alert(es.offline.saleQueued);
+    } else {
       window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     }
     setCart([]);
@@ -280,6 +312,7 @@ function PosContent() {
           >
             <option value="cash">{es.pos.cash}</option>
             <option value="card">{es.pos.card}</option>
+            <option value="transfer">{es.pos.transfer}</option>
           </select>
         </div>
         <div className="mt-4 border-t border-zinc-200 pt-3 text-sm">

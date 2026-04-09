@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCustomers } from "@/lib/store";
 import { getSessionUserOrNull, hasPermission } from "@/lib/auth";
+import { resolveExportRangeFromSearchParams, dateToYmd, saleInRange } from "@/lib/export-period";
 
 function esc(value: string | number | null | undefined) {
   const raw = value == null ? "" : String(value);
@@ -10,13 +11,15 @@ function esc(value: string | number | null | undefined) {
   return raw;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getSessionUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasPermission(user, "reports.read") && !hasPermission(user, "sales.create")) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const rows = getCustomers();
+  const url = new URL(request.url);
+  const range = resolveExportRangeFromSearchParams(url.searchParams);
+  const rows = getCustomers().filter((c) => saleInRange(c.createdAt, range));
   const headers = ["id", "name", "phone", "email", "pointsBalance", "createdAt"];
   const csv = [
     headers.join(","),
@@ -32,10 +35,13 @@ export async function GET() {
     ),
   ].join("\n");
 
+  const tag =
+    range === "all" ? "todo" : `${dateToYmd(new Date(range.fromMs))}_${dateToYmd(new Date(range.toMs))}`;
+
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="clientes.csv"`,
+      "Content-Disposition": `attachment; filename="clientes_${tag}.csv"`,
     },
   });
 }

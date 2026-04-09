@@ -1,7 +1,7 @@
 import type { RoleName } from "@/lib/types";
 
-const CASHIER_ALLOWED_PREFIXES = ["/mesas", "/ventas", "/register", "/pos"];
-const WAITER_ALLOWED_PREFIXES = ["/mesas", "/pos"];
+const CASHIER_ALLOWED_PREFIXES = ["/mesas", "/ventas", "/register", "/pos", "/cocina"];
+const WAITER_ALLOWED_PREFIXES = ["/mesas", "/pos", "/cocina"];
 
 /**
  * Rutas permitidas por rol. `enabled === false` bloquea todo el dashboard salvo que el layout redirija.

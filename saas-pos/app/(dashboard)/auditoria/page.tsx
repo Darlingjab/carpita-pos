@@ -1,11 +1,5 @@
-import { LegacySectionStub } from "@/lib/components/LegacySectionStub";
+import { AuditoriaView } from "@/lib/components/AuditoriaView";
 
 export default function AuditoriaPage() {
-  return (
-    <LegacySectionStub
-      title="Auditoría"
-      description="Registro de acciones con AuditService en el legacy (Firebase + logAudit). Aquí irá trazabilidad con Supabase y políticas RLS."
-      legacyFile="pages/AuditView.jsx + services/AuditService.js"
-    />
-  );
+  return <AuditoriaView />;
 }

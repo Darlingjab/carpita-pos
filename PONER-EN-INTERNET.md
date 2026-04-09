@@ -50,6 +50,7 @@ Ese es tu POS en Internet. Desde **cualquier navegador** (otra laptop, celular, 
 
 ## Qué debes saber (breve)
 
-En la nube el servidor **no es tu Mac**: los datos de ventas/caja en **memoria** pueden **reiniciarse** cuando Vercel enciende otra “máquina” detrás. Para un uso real de negocio haría falta **base de datos** (por ejemplo Supabase); para **probar y enseñar el POS online**, esto suele bastar.
+En la nube el servidor **no es tu Mac**: lo que guarda el POS hoy en **memoria** puede **reiniciarse**. **No** es lo mismo que “todo queda guardado en la nube para siempre”. Para eso hace falta **base de datos** (p. ej. Supabase).
 
-Más detalle técnico: **`saas-pos/docs/DEPLOY.md`**.
+Lectura clara en español: **`saas-pos/docs/DATOS-Y-NUBE.md`**.  
+Más técnico: **`saas-pos/docs/DEPLOY.md`**.

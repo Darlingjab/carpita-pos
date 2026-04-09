@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { addCustomerPointsMovement, findCustomer } from "@/lib/store";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
 
@@ -34,6 +35,13 @@ export async function POST(request: Request) {
     createdAt: new Date().toISOString(),
   });
 
+  const pushed = await pushRuntimeToCloud();
+  if (!pushed.ok) {
+    return NextResponse.json(
+      { error: "cloud_sync_failed", detail: pushed.error },
+      { status: 503 },
+    );
+  }
   return NextResponse.json({ data: { ok: true, customerId: c.id, tier } });
 }
 

@@ -3,12 +3,14 @@ import { redirect } from "next/navigation";
 import { demoBusiness, rolePermissions } from "@/lib/mock-data";
 import { AppUser, Permission } from "@/lib/types";
 import { canAccessPath } from "@/lib/role-access";
+import { pullRuntimeFromCloud } from "@/lib/cloud-sync";
 import { findRowByEmail, findRowById, getDefaultAppUser, toAppUser } from "@/lib/user-accounts";
 
 /** @deprecated Las credenciales viven en cuentas de usuario (`user-accounts`). */
 export const DEMO_CREDENTIALS = {} as Record<string, { password: string; role: string }>;
 
 export async function getCurrentUserMock(): Promise<AppUser> {
+  await pullRuntimeFromCloud();
   const store = await cookies();
   const email = store.get("pos_demo_user")?.value?.toLowerCase();
   if (!email) return getDefaultAppUser();
@@ -20,6 +22,7 @@ export async function getCurrentUserMock(): Promise<AppUser> {
 }
 
 export async function getSessionUserOrNull(): Promise<AppUser | null> {
+  await pullRuntimeFromCloud();
   const store = await cookies();
   const email = store.get("pos_demo_user")?.value?.toLowerCase();
   if (!email) return null;

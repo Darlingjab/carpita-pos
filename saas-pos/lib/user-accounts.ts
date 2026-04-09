@@ -55,6 +55,12 @@ export function getAllUserRows(): UserAccountRow[] {
   return [...rows];
 }
 
+/** Reemplaza todas las cuentas (hidratación desde Supabase). */
+export function replaceAllUserRows(next: UserAccountRow[]) {
+  rows.length = 0;
+  rows.push(...next);
+}
+
 export function findRowById(id: string): UserAccountRow | null {
   return rows.find((r) => r.id === id) ?? null;
 }

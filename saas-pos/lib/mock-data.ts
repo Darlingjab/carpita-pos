@@ -19,6 +19,7 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "products.manage",
     "users.manage",
     "kitchen.access",
+    "favorites.manage",
   ],
   supervisor: [
     "sales.create",
@@ -27,9 +28,9 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "reports.read",
     "kitchen.access",
   ],
-  cashier: ["sales.create", "register.open", "register.close"],
-  /** Mesero: pedidos en salón / POS, sin caja ni cocina KDS. */
-  waiter: ["sales.create"],
+  cashier: ["sales.create", "register.open", "register.close", "kitchen.access"],
+  /** Mesero: pedidos en salón / POS y vista cocina (KDS) si la usa el local. */
+  waiter: ["sales.create", "kitchen.access"],
   /** Cocina: solo pantalla KDS. */
   cook: ["kitchen.access"],
 };
@@ -64,7 +65,6 @@ export const demoUsers: AppUser[] = [
 export const demoCategories = importedCategories;
 export const demoProducts: Product[] = importedProducts;
 export const demoTables = importedTables;
-export const demoSales = [];
 
 export const demoCustomers: Customer[] = [
   {
@@ -148,7 +148,7 @@ export const demoRegisterMovements: RegisterMovement[] = [
     businessId: importedBusinessId,
     type: "in",
     amount: 320.75,
-    note: "Venta sale_bulk_001 (histórico demo)",
+    note: "Ingreso de caja (ejemplo histórico)",
     createdAt: new Date(Date.now() - 10 * 86400000).toISOString(),
     createdBy: "usr_cashier",
   },
