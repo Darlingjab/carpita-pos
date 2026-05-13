@@ -21,6 +21,29 @@ type DbRow = {
   register_opening_float: number | string;
 };
 
+// ---------------------------------------------------------------------------
+// Caché en proceso
+// ---------------------------------------------------------------------------
+
+/**
+ * TTL de la caché de lectura.
+ * Si el último pull ocurrió hace menos de PULL_TTL_MS, se sirve desde memoria
+ * sin consultar Supabase. Se invalida explícitamente tras cada push.
+ */
+const PULL_TTL_MS = 3_000;
+let lastPullAt = 0;
+
+/**
+ * Promise del pull en curso.
+ * Evita disparar N consultas paralelas a Supabase cuando varios requests
+ * llegan simultáneamente al mismo proceso Node antes de que expire el TTL.
+ */
+let pullInFlight: Promise<void> | null = null;
+
+// ---------------------------------------------------------------------------
+// Helpers de deserialización
+// ---------------------------------------------------------------------------
+
 function asSaleArray(v: unknown): Sale[] {
   return Array.isArray(v) ? (v as Sale[]) : [];
 }
@@ -49,12 +72,11 @@ function isDbUnseeded(row: DbRow): boolean {
   return asUserRows(row.user_accounts).length === 0;
 }
 
-/**
- * Lee el estado desde Supabase y lo aplica en memoria.
- * Si la tabla está vacía (sin usuarios), sube el estado inicial del código a la nube.
- */
-export async function pullRuntimeFromCloud(): Promise<void> {
-  if (!isCloudPersistenceEnabled()) return;
+// ---------------------------------------------------------------------------
+// Lógica de pull (interna)
+// ---------------------------------------------------------------------------
+
+async function _executePull(): Promise<void> {
   const supabase = createServiceSupabase();
   if (!supabase) return;
 
@@ -111,6 +133,36 @@ export async function pullRuntimeFromCloud(): Promise<void> {
   );
 }
 
+// ---------------------------------------------------------------------------
+// API pública
+// ---------------------------------------------------------------------------
+
+/**
+ * Lee el estado desde Supabase y lo aplica en memoria.
+ *
+ * Optimizaciones:
+ * - **Caché TTL**: si el último pull fue hace menos de 3 s, retorna sin ir a Supabase.
+ * - **Deduplicación**: si ya hay un pull en vuelo, los llamadores adicionales
+ *   esperan la misma Promise en lugar de disparar consultas paralelas.
+ * - **Invalidación**: `pushRuntimeToCloud` resetea el TTL para garantizar
+ *   que el siguiente pull siempre lea datos frescos tras una mutación.
+ */
+export async function pullRuntimeFromCloud(): Promise<void> {
+  if (!isCloudPersistenceEnabled()) return;
+
+  // Cache hit: el estado en memoria es suficientemente reciente
+  if (Date.now() - lastPullAt < PULL_TTL_MS) return;
+
+  // Deduplicar requests concurrentes dentro del mismo proceso
+  if (pullInFlight) return pullInFlight;
+
+  pullInFlight = _executePull().finally(() => {
+    lastPullAt = Date.now();
+    pullInFlight = null;
+  });
+  return pullInFlight;
+}
+
 /** Guarda el estado en memoria en Supabase (llamar tras mutaciones). */
 export async function pushRuntimeToCloud(): Promise<{ ok: boolean; error?: string }> {
   if (!isCloudPersistenceEnabled()) return { ok: true };
@@ -141,5 +193,8 @@ export async function pushRuntimeToCloud(): Promise<{ ok: boolean; error?: strin
     console.error("[cloud-sync] push:", error.message);
     return { ok: false, error: error.message };
   }
+
+  // Invalidar caché para que el siguiente pull lea el estado recién guardado
+  lastPullAt = 0;
   return { ok: true };
 }
