@@ -9,11 +9,10 @@ import {
   toAppUser,
 } from "@/lib/user-accounts";
 
-function rowToJson(r: ReturnType<typeof getAllUserRows>[number], includePassword: boolean) {
+function rowToJson(r: ReturnType<typeof getAllUserRows>[number]) {
   return {
     ...toAppUser(r),
     disabledPermissions: r.disabledPermissions,
-    ...(includePassword ? { passwordPlain: r.passwordPlain } : {}),
   };
 }
 
@@ -28,7 +27,7 @@ export async function GET() {
   }
 
   const rows = getAllUserRows();
-  const data = rows.map((r) => rowToJson(r, canManage));
+  const data = rows.map(rowToJson);
   return NextResponse.json({
     data,
     meta: {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
   const created = createUserAccount({
     fullName,
     email,
-    passwordPlain: password,
+    password,
     role,
     enabled: body.enabled !== false,
     disabledPermissions: Array.isArray(body.disabledPermissions) ? body.disabledPermissions : [],
@@ -84,5 +83,5 @@ export async function POST(request: Request) {
       { status: 503 },
     );
   }
-  return NextResponse.json({ data: rowToJson(created, true) }, { status: 201 });
+  return NextResponse.json({ data: rowToJson(created) }, { status: 201 });
 }

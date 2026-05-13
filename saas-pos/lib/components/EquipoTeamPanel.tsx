@@ -27,7 +27,6 @@ type UserDto = {
   role: RoleName;
   enabled?: boolean;
   disabledPermissions: Permission[];
-  passwordPlain?: string;
 };
 
 export function EquipoTeamPanel() {
@@ -103,7 +102,6 @@ export function EquipoTeamPanel() {
               <th className="px-3 py-2">Usuario (correo)</th>
               <th className="px-3 py-2">Rol</th>
               <th className="px-3 py-2">Estado</th>
-              {canManage && <th className="px-3 py-2">Clave (solo admin)</th>}
               <th className="px-3 py-2">Permisos</th>
               {canManage && <th className="px-3 py-2 text-right">Acciones</th>}
             </tr>
@@ -115,11 +113,6 @@ export function EquipoTeamPanel() {
                 <td className="px-3 py-2 font-mono text-xs">{u.email}</td>
                 <td className="px-3 py-2">{formatRole(u.role)}</td>
                 <td className="px-3 py-2">{u.enabled === false ? "Desactivado" : "Activo"}</td>
-                {canManage && (
-                  <td className="px-3 py-2 font-mono text-xs text-slate-700">
-                    {u.role === "admin" ? "—" : (u.passwordPlain ?? "—")}
-                  </td>
-                )}
                 <td className="max-w-[200px] px-3 py-2 text-xs text-slate-600">
                   {permSummary(u)}
                 </td>

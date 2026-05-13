@@ -4,11 +4,10 @@ import { getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import type { Permission } from "@/lib/types";
 import { deleteUserAccount, findRowById, toAppUser, updateUserAccount } from "@/lib/user-accounts";
 
-function rowToJson(r: NonNullable<ReturnType<typeof findRowById>>, includePassword: boolean) {
+function rowToJson(r: NonNullable<ReturnType<typeof findRowById>>) {
   return {
     ...toAppUser(r),
     disabledPermissions: r.disabledPermissions,
-    ...(includePassword ? { passwordPlain: r.passwordPlain } : {}),
   };
 }
 
@@ -36,7 +35,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
     if (body.password.length < 4) {
       return NextResponse.json({ error: "password_short" }, { status: 400 });
     }
-    patch.passwordPlain = body.password;
+    patch.password = body.password;
   }
   if (body.role !== undefined) {
     if (!["admin", "cashier", "supervisor", "waiter", "cook"].includes(body.role)) {
@@ -61,7 +60,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
       { status: 503 },
     );
   }
-  return NextResponse.json({ data: rowToJson(updated, true) });
+  return NextResponse.json({ data: rowToJson(updated) });
 }
 
 export async function DELETE(_request: Request, ctx: { params: Promise<{ id: string }> }) {
