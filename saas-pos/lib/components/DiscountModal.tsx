@@ -137,7 +137,7 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
               type="number"
               min={0}
               max={100}
-              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-base"
               value={percent}
               onChange={(e) => {
                 setPercent(e.target.value);
@@ -152,7 +152,7 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
               type="number"
               min={0}
               step="0.01"
-              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+              className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-base"
               value={amountCustom}
               onChange={(e) => {
                 setAmountCustom(e.target.value);
@@ -167,7 +167,7 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
         </label>
         <input
           type="text"
-          className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-sm"
+          className="mt-0.5 w-full rounded border border-slate-200 px-2 py-1.5 text-base"
           placeholder={es.discountModal.descriptionPlaceholder}
           value={description}
           onChange={(e) => setDescription(e.target.value)}

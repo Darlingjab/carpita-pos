@@ -49,7 +49,7 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
       aria-modal="true"
       aria-labelledby="open-table-title"
     >
-      <div className="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+      <div className="flex max-h-[90dvh] w-full max-w-sm flex-col overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
         <h2 id="open-table-title" className="text-lg font-black text-slate-900">
           {es.restaurant.openTableTitle} {table.label}
         </h2>
@@ -60,7 +60,7 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
               Cliente guardado (opcional)
             </label>
             <select
-              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-base"
               style={{ borderColor: "var(--pos-border)" }}
               value={selectedCustomerId}
               onChange={(e) => setSelectedCustomerId(e.target.value)}
@@ -80,7 +80,7 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
               type="number"
               min={1}
               max={20}
-              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-center text-sm font-bold"
+              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-center text-base font-bold"
               style={{ borderColor: "var(--pos-border)" }}
               value={guests}
               onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}

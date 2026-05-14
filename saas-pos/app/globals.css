@@ -310,6 +310,27 @@ body {
 .animate-slide-up  { animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1) forwards; }
 .animate-scale-in  { animation: scaleIn 0.2s ease forwards; }
 
+/* ─── Mobile — prevención iOS zoom en inputs ─────── */
+/*
+   iOS Safari hace zoom cuando font-size < 16px al enfocar un input.
+   Forzamos 1rem (16px) en pantallas táctiles sin perder el tamaño
+   visual en desktop.
+*/
+@media (max-width: 1024px) {
+  .input-base,
+  .input-base:focus,
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  select,
+  textarea {
+    font-size: 1rem !important; /* iOS zoom threshold */
+  }
+}
+
 /* ─── Impresión ──────────────────────────────────── */
 
 @media print {

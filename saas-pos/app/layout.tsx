@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Outfit } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Carpita POS",
   description: "Punto de venta — Carpita",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  // viewport-fit=cover para env(safe-area-inset-*) en iPhone con notch/Dynamic Island
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

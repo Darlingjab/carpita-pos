@@ -1044,7 +1044,13 @@ export function RestaurantOrderSidebar({
         </div>
       )}
 
-      <div className="sticky bottom-0 z-20 shrink-0 border-t bg-white px-2.5 pb-3 pt-2 shadow-[0_-8px_20px_-4px_rgb(15_23_42/0.10)] supports-[backdrop-filter]:bg-white/96 supports-[backdrop-filter]:backdrop-blur-md" style={{ borderColor: "var(--pos-border)" }}>
+      <div
+        className="sticky bottom-0 z-20 shrink-0 border-t bg-white px-2.5 pt-2 shadow-[0_-8px_20px_-4px_rgb(15_23_42/0.10)] supports-[backdrop-filter]:bg-white/96 supports-[backdrop-filter]:backdrop-blur-md"
+        style={{
+          borderColor: "var(--pos-border)",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+        }}
+      >
         {mode === "table" && !table ? null : counterBlocked ? null : (
           <>
             {/* Controles auxiliares: descuento + forma de pago */}
