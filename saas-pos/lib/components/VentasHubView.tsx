@@ -609,13 +609,9 @@ export function VentasHubView() {
         {subTab === "movimientos" && (
           <div className="animate-fade-in space-y-3">
             <p className="text-xs text-slate-500">
-              {movFilter === "todos" &&
-                "Solo datos del reporte de ventas importado (import:exports). Una fila por venta; no incluye aperturas, cierres ni ajustes del POS."}
-              {movFilter === "ventas" && "Ventas del archivo importado (histórico del reporte)."}
-              {movFilter === "descuentos" &&
-                "Tickets con descuento en el reporte importado (importe y detalle)."}
-              {movFilter === "gastos" &&
-                "El reporte importado no incluye gastos de caja; esta vista queda vacía por ahora."}
+              {movFilter === "ventas" && "Historial de ventas registradas."}
+              {movFilter === "descuentos" && "Tickets con descuento aplicado."}
+              {movFilter === "gastos" && "Salidas de caja registradas en el período."}
             </p>
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               {(movFilter === "todos" || movFilter === "gastos") && (
@@ -634,7 +630,7 @@ export function VentasHubView() {
                   {importMovements.length > IMPORT_MOV_UI_CAP && (
                     <p className="border-b border-amber-100 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
                       Mostrando las {IMPORT_MOV_UI_CAP} más recientes de {importMovements.length.toLocaleString("es-EC")}{" "}
-                      ventas del import. Usá «Exportar CSV» para bajar el período completo.
+                      ventas. Usá «Exportar CSV» para bajar el período completo.
                     </p>
                   )}
                   <table className="w-full border-collapse text-sm">
@@ -785,7 +781,9 @@ export function VentasHubView() {
 
         {subTab === "arqueos" && (
           <div className="animate-fade-in space-y-6">
-            <p className="text-xs text-slate-500">{es.arqueosHub.registerRedirectNote}</p>
+            {es.arqueosHub.registerRedirectNote && (
+              <p className="text-xs text-slate-500">{es.arqueosHub.registerRedirectNote}</p>
+            )}
             <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
               {arqueosHistorySource === "import" ? (
                 <>
@@ -1169,9 +1167,7 @@ export function VentasHubView() {
               )}
               {arqueosHistorySource === "import" && arqueosImportRows.length === 0 && (
                 <p className="mt-4 text-center text-sm text-slate-500">
-                  Sin datos importados. Ejecutá{" "}
-                  <code className="rounded bg-slate-100 px-1">npm run import:exports</code> para regenerar estadísticas
-                  desde tu CSV.
+                  Sin movimientos en el período seleccionado.
                 </p>
               )}
             </div>

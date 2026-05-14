@@ -15,6 +15,7 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "sales.refund",
     "register.open",
     "register.close",
+    "register.movements",
     "reports.read",
     "products.manage",
     "users.manage",
@@ -25,10 +26,11 @@ export const rolePermissions: Record<RoleName, string[]> = {
     "sales.create",
     "register.open",
     "register.close",
+    "register.movements",
     "reports.read",
     "kitchen.access",
   ],
-  cashier: ["sales.create", "register.open", "register.close", "kitchen.access"],
+  cashier: ["sales.create", "register.open", "register.close", "register.movements", "kitchen.access"],
   /** Mesero: pedidos en salón / POS y vista cocina (KDS) si la usa el local. */
   waiter: ["sales.create", "kitchen.access"],
   /** Cocina: solo pantalla KDS. */

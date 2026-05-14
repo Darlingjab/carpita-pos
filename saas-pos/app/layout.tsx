@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "POS SaaS",
-  description: "Punto de venta multi-local — Next.js y Supabase",
+  title: "Carpita POS",
+  description: "Punto de venta — Carpita",
 };
 
 export default function RootLayout({

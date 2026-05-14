@@ -13,7 +13,7 @@ export function LegacySectionStub({ title, description, legacyFile, children }: 
     <div className="animate-fade-in rounded-xl border border-slate-200 bg-[#f8fafc] p-6 shadow-sm">
       <h2 className="text-lg font-black tracking-tight text-slate-900">{title}</h2>
       <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">{description}</p>
-      {legacyFile && (
+      {process.env.NODE_ENV === "development" && legacyFile && (
         <p className="mt-2 font-mono text-xs text-slate-400">
           Referencia histórica (módulo equivalente): <code>{legacyFile}</code>
         </p>

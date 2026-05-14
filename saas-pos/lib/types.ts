@@ -8,6 +8,7 @@ export type Permission =
   | "sales.refund"
   | "register.open"
   | "register.close"
+  | "register.movements"
   | "reports.read"
   | "products.manage"
   | "users.manage"

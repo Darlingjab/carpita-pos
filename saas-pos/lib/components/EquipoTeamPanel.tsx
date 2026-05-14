@@ -12,6 +12,7 @@ const PERM_LABELS: Record<Permission, string> = {
   "sales.refund": "Devoluciones",
   "register.open": "Abrir caja",
   "register.close": "Cerrar caja",
+  "register.movements": "Gastos y movimientos de caja",
   "reports.read": "Informes y exportaciones",
   "products.manage": "Productos e inventario",
   "users.manage": "Usuarios y equipo",
