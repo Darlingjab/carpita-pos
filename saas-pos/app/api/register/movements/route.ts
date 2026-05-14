@@ -6,6 +6,9 @@ import { addRegisterMovement, getRegisterMovements } from "@/lib/store";
 export async function GET() {
   const user = await getSessionUserOrNull();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!hasPermission(user, "register.movements") && !hasPermission(user, "reports.read")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   return NextResponse.json({ data: getRegisterMovements() });
 }
 

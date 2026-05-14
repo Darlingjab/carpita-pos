@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   if (!fullName || !role || !["admin", "cashier", "supervisor", "waiter", "cook"].includes(role)) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
-  if (password.length < 4) {
+  if (password.length < 6) {
     return NextResponse.json({ error: "password_short" }, { status: 400 });
   }
 

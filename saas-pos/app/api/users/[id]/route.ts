@@ -32,7 +32,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   if (body.fullName !== undefined) patch.fullName = body.fullName;
   if (body.email !== undefined) patch.email = body.email;
   if (body.password !== undefined && body.password.length > 0) {
-    if (body.password.length < 4) {
+    if (body.password.length < 6) {
       return NextResponse.json({ error: "password_short" }, { status: 400 });
     }
     patch.password = body.password;

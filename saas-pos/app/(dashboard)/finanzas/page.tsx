@@ -525,6 +525,11 @@ export default function FinanzasInformesPage() {
                   <th className="px-2 py-2">Fecha</th>
                 </tr>
               </thead>
+              {filtered.length > 50 && (
+                <caption className="caption-bottom px-2 py-1.5 text-left text-xs text-slate-500">
+                  Mostrando las primeras 50 de {filtered.length.toLocaleString("es-EC")} ventas. Descargá el CSV para ver todas.
+                </caption>
+              )}
               <tbody>
                 {filtered.slice(0, 50).map((s) => (
                   <tr key={s.id} className="border-b border-zinc-100">

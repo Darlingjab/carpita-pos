@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const body = (await request.json()) as { currentPassword?: string; newPassword?: string };
   const currentPassword = body.currentPassword ?? "";
   const newPassword = body.newPassword ?? "";
-  if (newPassword.length < 4) {
+  if (newPassword.length < 6) {
     return NextResponse.json({ error: "password_short" }, { status: 400 });
   }
 

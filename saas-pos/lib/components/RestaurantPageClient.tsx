@@ -74,8 +74,9 @@ export function RestaurantPageClient({
 
   useEffect(() => {
     void refreshAssignments();
-    window.addEventListener("pos-table-assignments-updated", () => void refreshAssignments());
-    return () => window.removeEventListener("pos-table-assignments-updated", () => void refreshAssignments());
+    const onAssignmentsUpdated = () => void refreshAssignments();
+    window.addEventListener("pos-table-assignments-updated", onAssignmentsUpdated);
+    return () => window.removeEventListener("pos-table-assignments-updated", onAssignmentsUpdated);
   }, [refreshAssignments]);
 
   // ---------------------------------------------------------------------------

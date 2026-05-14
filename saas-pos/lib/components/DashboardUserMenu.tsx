@@ -40,8 +40,8 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
   }
 
   async function submitPasswordChange() {
-    if (newPwd.length < 4) {
-      window.alert("La nueva contraseña debe tener al menos 4 caracteres.");
+    if (newPwd.length < 6) {
+      window.alert("La nueva contraseña debe tener al menos 6 caracteres.");
       return;
     }
     if (newPwd !== confirmPwd) {

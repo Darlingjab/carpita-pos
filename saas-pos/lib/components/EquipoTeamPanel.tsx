@@ -170,7 +170,7 @@ export function EquipoTeamPanel() {
             if (!res.ok) {
               window.alert(
                 d.error === "password_short"
-                  ? "La contraseña debe tener al menos 4 caracteres."
+                  ? "La contraseña debe tener al menos 6 caracteres."
                   : d.error === "email_taken_or_invalid"
                     ? "Correo ya en uso u datos inválidos."
                     : "No se pudo crear el usuario.",
@@ -318,8 +318,8 @@ function UserFormModal({
         window.alert("Completa nombre y correo.");
         return;
       }
-      if (password.length < 4) {
-        window.alert("La contraseña debe tener al menos 4 caracteres.");
+      if (password.length < 6) {
+        window.alert("La contraseña debe tener al menos 6 caracteres.");
         return;
       }
     }
