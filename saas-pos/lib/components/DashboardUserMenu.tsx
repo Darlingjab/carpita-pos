@@ -85,20 +85,23 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
     <div className="relative shrink-0" ref={rootRef}>
       <button
         type="button"
-        className="flex items-center gap-0.5 rounded-md py-0.5 pl-0.5 pr-0.5 outline-none transition hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--pos-primary)] focus-visible:ring-offset-1 sm:pr-1"
+        className="flex items-center gap-1 rounded-lg px-1 py-0.5 outline-none transition-colors hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-[var(--pos-primary)] focus-visible:ring-offset-1"
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label={`${es.nav.profileMenuAria}: ${fullName}`}
         onClick={() => setOpen((v) => !v)}
       >
         <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.62rem] font-bold text-white"
-          style={{ backgroundColor: "var(--pos-primary)" }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.68rem] font-black text-white shadow-sm"
+          style={{
+            background: "linear-gradient(135deg, var(--pos-primary) 0%, var(--pos-primary-hover) 100%)",
+            boxShadow: "0 1px 4px var(--pos-primary-ring)",
+          }}
         >
           {initial}
         </span>
         <ChevronDown
-          className={`h-3 w-3 shrink-0 text-slate-400 sm:h-3.5 sm:w-3.5 ${open ? "rotate-180" : ""} transition-transform`}
+          className={`h-3 w-3 shrink-0 text-slate-400 ${open ? "rotate-180" : ""} transition-transform duration-150`}
           aria-hidden
           strokeWidth={2.5}
         />
@@ -107,29 +110,38 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+4px)] z-[200] min-w-[200px] rounded-lg border border-slate-200 bg-white py-0.5 shadow-xl"
-          style={{ borderColor: "var(--pos-border)" }}
+          className="absolute right-0 top-[calc(100%+6px)] z-[200] min-w-[210px] overflow-hidden rounded-xl border bg-white py-1 shadow-lg"
+          style={{ borderColor: "var(--pos-border)", boxShadow: "var(--shadow-lg)" }}
         >
-          <div className="border-b border-slate-100 px-2.5 py-2">
-            <p className="max-w-[220px] truncate text-xs font-bold text-slate-900">{fullName}</p>
-            <p className="truncate text-[0.65rem] text-slate-500">{roleLabel}</p>
+          {/* Cabecera del menú con avatar */}
+          <div className="flex items-center gap-2.5 border-b px-3 py-2.5" style={{ borderColor: "var(--pos-border)" }}>
+            <span
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
+              style={{ background: "linear-gradient(135deg, var(--pos-primary) 0%, var(--pos-primary-hover) 100%)" }}
+            >
+              {initial}
+            </span>
+            <div className="min-w-0">
+              <p className="max-w-[160px] truncate text-xs font-bold text-slate-900">{fullName}</p>
+              <p className="truncate text-[0.65rem] text-slate-500">{roleLabel}</p>
+            </div>
           </div>
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
             onClick={() => openPasswordModal()}
           >
-            <KeyRound className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+            <KeyRound className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
             {es.nav.changePassword}
           </button>
           <button
             type="button"
             role="menuitem"
-            className="flex w-full items-center gap-2 px-2.5 py-2 text-left text-xs font-semibold text-slate-800 transition hover:bg-slate-50"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50"
             onClick={() => void logout()}
           >
-            <LogOut className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden />
+            <LogOut className="h-3.5 w-3.5 shrink-0" aria-hidden />
             {es.nav.logout}
           </button>
         </div>

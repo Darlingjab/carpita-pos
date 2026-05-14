@@ -209,13 +209,15 @@ export function TableFloorMap({
 
       <div
         ref={gridRef}
-        className="grid min-h-0 flex-1 gap-1 rounded-xl border border-slate-200/90 bg-slate-100/90 p-1 shadow-inner"
+        className="grid min-h-0 flex-1 gap-1 rounded-xl border p-1"
         style={{
           gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))`,
-          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(203 213 225 / 0.55) 1px, transparent 0)`,
-          backgroundSize: "22px 22px",
-          boxShadow: "inset 0 2px 12px rgb(15 23 42 / 0.06)",
+          backgroundColor: "#eef1f6",
+          borderColor: "rgb(15 23 42 / 0.1)",
+          backgroundImage: `radial-gradient(circle at 1.5px 1.5px, rgb(15 23 42 / 0.10) 1.5px, transparent 0)`,
+          backgroundSize: "24px 24px",
+          boxShadow: "inset 0 2px 16px rgb(15 23 42 / 0.07)",
         }}
       >
         {tables.map((t) => {
@@ -250,22 +252,22 @@ export function TableFloorMap({
               : "";
 
           const statusClasses = selected
-            ? "ring-[3px] ring-blue-400 ring-offset-2 ring-offset-slate-100 shadow-lg border-blue-300 bg-blue-50 text-blue-950"
+            ? "ring-[3px] ring-blue-500 ring-offset-2 ring-offset-[#eef1f6] shadow-xl border-blue-400 bg-blue-50 text-blue-950 scale-105"
             : tableState === "pending"
-              ? "border-orange-400 bg-gradient-to-br from-orange-100 to-orange-50 text-orange-950 shadow-md"
+              ? "border-orange-400 bg-gradient-to-br from-orange-50 to-amber-50 text-orange-950 shadow-[0_3px_10px_rgb(251_146_60/0.35)]"
               : tableState === "ready"
-                ? "border-amber-400 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-950 shadow-md"
+                ? "border-amber-400 bg-gradient-to-br from-amber-50 to-yellow-50 text-amber-950 shadow-[0_3px_10px_rgb(251_191_36/0.35)]"
                 : tableState === "open"
-                  ? "border-sky-300 bg-gradient-to-br from-sky-50 to-white text-sky-950 shadow-sm"
-                  : "border-emerald-400 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-sm";
+                  ? "border-sky-300 bg-gradient-to-br from-sky-50 to-white text-sky-950 shadow-[0_2px_8px_rgb(56_189_248/0.22)]"
+                  : "border-emerald-300 bg-gradient-to-br from-emerald-50 to-white text-emerald-950 shadow-[0_2px_6px_rgb(34_197_94/0.18)]";
 
           const shapeRound = cell.shape === "round";
           const inner = (
             <div
-              className={`flex h-[min(3.5rem,20vw)] w-[min(3.5rem,20vw)] shrink-0 flex-col items-center justify-center border-2 px-0.5 py-0.5 text-center transition-[transform,box-shadow] sm:h-[min(4.25rem,18vw)] sm:w-[min(4.25rem,18vw)] sm:py-1 ${
+              className={`flex h-[min(3.5rem,20vw)] w-[min(3.5rem,20vw)] shrink-0 flex-col items-center justify-center border-2 px-0.5 py-0.5 text-center transition-[transform,box-shadow,filter] duration-150 sm:h-[min(4.25rem,18vw)] sm:w-[min(4.25rem,18vw)] sm:py-1 ${
                 shapeRound ? "rounded-full" : shapeClass
               } ${statusClasses} ${timeAlert} ${
-                arrangeMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer hover:brightness-[1.02]"
+                arrangeMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer hover:scale-[1.04] hover:brightness-[1.03] active:scale-[0.98]"
               }`}
               style={{ margin: "auto" }}
               onPointerDown={(e) => startArrangeDrag(t.id, e)}
@@ -330,23 +332,27 @@ export function TableFloorMap({
         })}
       </div>
       {/* Leyenda de colores */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200/70 bg-slate-50 px-3 py-1.5">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-3 py-2" style={{ backgroundColor: "#f5f7fa", borderColor: "rgb(15 23 42 / 0.08)" }}>
         {([
-          { color: "bg-emerald-200 border-emerald-400", label: "Libre" },
-          { color: "bg-sky-100 border-sky-300", label: "Abierta" },
-          { color: "bg-orange-100 border-orange-400", label: "Cocinando" },
-          { color: "bg-amber-100 border-amber-400", label: "Lista para cerrar" },
+          { dot: "bg-emerald-400", label: "Libre" },
+          { dot: "bg-sky-400", label: "Abierta" },
+          { dot: "bg-orange-400", label: "Cocinando" },
+          { dot: "bg-amber-400", label: "Lista" },
         ] as const).map((s) => (
-          <span key={s.label} className="flex items-center gap-1 text-[0.6rem] font-semibold text-slate-600">
-            <span className={`h-2.5 w-2.5 shrink-0 rounded border ${s.color}`} />
+          <span key={s.label} className="flex items-center gap-1.5 text-[0.6rem] font-semibold text-slate-500">
+            <span className={`h-2 w-2 shrink-0 rounded-full ${s.dot}`} />
             {s.label}
           </span>
         ))}
-        <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-slate-400">
-          <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-transparent" />
-          &gt;90 min
-          <span className="ml-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-red-600 bg-transparent" />
-          &gt;2 h
+        <span className="ml-auto flex items-center gap-3 text-[0.6rem] text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full border-2 border-orange-500" />
+            &gt;90 min
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block h-2 w-2 rounded-full border-2 border-red-600" />
+            &gt;2 h
+          </span>
         </span>
       </div>
     </section>

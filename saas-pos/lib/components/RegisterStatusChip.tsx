@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CircleDot } from "lucide-react";
 
 /**
  * Indicador de estado de caja en el header.
@@ -33,13 +32,23 @@ export function RegisterStatusChip() {
     <Link
       href="/ventas?tab=arqueos"
       title={status === "open" ? "Caja abierta — ir a arqueos" : "Caja cerrada — ir a arqueos"}
-      className={`flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[0.6rem] font-extrabold uppercase tracking-wide transition hover:opacity-80 ${
+      className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.62rem] font-extrabold uppercase tracking-wide transition-opacity hover:opacity-75 ${
         status === "open"
           ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-          : "border-rose-200 bg-rose-50 text-rose-700"
+          : "border-rose-200 bg-rose-50 text-rose-600"
       }`}
     >
-      <CircleDot className="h-2.5 w-2.5 shrink-0" aria-hidden />
+      {/* Dot: pulsante si está abierta, estático si está cerrada */}
+      <span className="relative flex h-2 w-2 shrink-0">
+        {status === "open" && (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+        )}
+        <span
+          className={`relative inline-flex h-2 w-2 rounded-full ${
+            status === "open" ? "bg-emerald-500" : "bg-rose-400"
+          }`}
+        />
+      </span>
       <span className="hidden sm:inline">{status === "open" ? "Caja abierta" : "Caja cerrada"}</span>
       <span className="sm:hidden">{status === "open" ? "Abierta" : "Cerrada"}</span>
     </Link>
