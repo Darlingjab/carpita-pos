@@ -600,21 +600,25 @@ export function VentasHubView() {
           <div className="animate-fade-in space-y-4 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">{es.reportsPro.title}</h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">{es.reportsPro.salesToday}</p>
-                <p className="mt-2 text-2xl font-black text-slate-900">{salesToday.length}</p>
+              <div className="relative overflow-hidden rounded-xl border border-blue-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-blue-400" />
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{es.reportsPro.salesToday}</p>
+                <p className="mt-2 text-3xl font-black tabular-nums text-slate-900">{salesToday.length}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">{es.reportsPro.revenueToday}</p>
-                <p className="mt-2 text-2xl font-black text-emerald-700">${revenueToday.toFixed(2)}</p>
+              <div className="relative overflow-hidden rounded-xl border border-emerald-100 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-emerald-400" />
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{es.reportsPro.revenueToday}</p>
+                <p className="mt-2 text-3xl font-black tabular-nums text-emerald-700">${revenueToday.toFixed(2)}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">{es.reportsPro.avgTicket}</p>
-                <p className="mt-2 text-2xl font-black text-slate-900">${avgTicket.toFixed(2)}</p>
+              <div className="relative overflow-hidden rounded-xl border border-violet-100 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-violet-400" />
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{es.reportsPro.avgTicket}</p>
+                <p className="mt-2 text-3xl font-black tabular-nums text-slate-900">${avgTicket.toFixed(2)}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase text-slate-500">{es.reportsPro.topSku}</p>
-                <p className="mt-2 text-sm font-bold text-slate-900">{topToday ? topToday[0] : "—"}</p>
+              <div className="relative overflow-hidden rounded-xl border border-amber-100 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-amber-400" />
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{es.reportsPro.topSku}</p>
+                <p className="mt-2 text-base font-bold text-slate-900">{topToday ? topToday[0] : "—"}</p>
                 {topToday && (
                   <p className="text-xs text-slate-500">
                     {topToday[1]} {es.reports.units}
@@ -645,21 +649,25 @@ export function VentasHubView() {
           <div className="animate-fade-in space-y-3">
             {/* KPI cards */}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
-                <p className="text-[0.65rem] font-bold uppercase text-emerald-600">Ingresos hoy</p>
-                <p className="mt-1 text-xl font-black text-emerald-800">${revenueToday.toFixed(2)}</p>
+              <div className="relative overflow-hidden rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-3 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-emerald-400" />
+                <p className="text-[0.65rem] font-bold uppercase tracking-wide text-emerald-600">Ingresos hoy</p>
+                <p className="mt-1.5 text-2xl font-black tabular-nums text-emerald-800">${revenueToday.toFixed(2)}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Ventas hoy</p>
-                <p className="mt-1 text-xl font-black text-slate-800">{salesToday.length}</p>
+              <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-blue-400" />
+                <p className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">Ventas hoy</p>
+                <p className="mt-1.5 text-2xl font-black tabular-nums text-slate-800">{salesToday.length}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Ticket promedio</p>
-                <p className="mt-1 text-xl font-black text-slate-800">${avgTicket.toFixed(2)}</p>
+              <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-violet-400" />
+                <p className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">Ticket promedio</p>
+                <p className="mt-1.5 text-2xl font-black tabular-nums text-slate-800">${avgTicket.toFixed(2)}</p>
               </div>
-              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
-                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Con descuento</p>
-                <p className="mt-1 text-xl font-black text-slate-800">{discountsToday.length}</p>
+              <div className="relative overflow-hidden rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <div className="absolute left-0 top-0 h-full w-1 rounded-l-xl bg-amber-400" />
+                <p className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">Con descuento</p>
+                <p className="mt-1.5 text-2xl font-black tabular-nums text-slate-800">{discountsToday.length}</p>
               </div>
             </div>
             {/* Buscador */}
