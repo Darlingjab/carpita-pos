@@ -12,7 +12,7 @@ import { loadOverrides, saveOverrides } from "@/lib/product-overrides";
 import type { DiningTable, PaymentMethod, Product, SaleChannel, SaleItem, SalePayment } from "@/lib/types";
 import { DiscountModal, type DiscountApplyPayload } from "@/lib/components/DiscountModal";
 import { PaymentChangeModal, type PaymentModalResult } from "@/lib/components/PaymentChangeModal";
-import { printKitchenTicket, openCashDrawerStub } from "@/lib/print-ticket";
+import { printKitchenTicket, printSaleReceipt, printPreCuenta, openCashDrawerStub } from "@/lib/print-ticket";
 import { RestaurantFavoritesAdminModal } from "@/lib/components/RestaurantFavoritesAdminModal";
 import {
   appearanceForSlot,
@@ -503,6 +503,24 @@ export function RestaurantOrderSidebar({
     } else {
       window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     }
+
+    // Imprimir recibo del cliente tras cobro exitoso (o en cola offline)
+    printSaleReceipt({
+      tableLabel: table?.label ?? undefined,
+      serverName: billingServerName ?? undefined,
+      customerName: customer,
+      items: chargeItems,
+      subtotal: chargeSubtotal,
+      discount: chargeDiscount,
+      total: chargeTotal,
+      payments,
+      tenderedCash: pay.tenderedCash ?? null,
+      changeGiven: pay.changeGiven ?? null,
+      discountType: discountMeta?.type ?? null,
+      discountDescription: discountMeta?.description ?? null,
+      discountPercent: discountMeta?.percent ?? null,
+    });
+
     const allCharged = cart.every((line) => {
       const picked = chargeParts.find((p) => p.lineId === line.id);
       return !!picked && picked.qty >= line.qty;
@@ -1100,6 +1118,29 @@ export function RestaurantOrderSidebar({
                 onClick={() => setSplitModal(true)}
               >
                 {es.orderFlow.partialCheckout}
+              </button>
+            )}
+            {mode === "table" && cart.length > 0 && (
+              <button
+                type="button"
+                className="mt-0.5 w-full rounded-lg border border-slate-200 bg-white py-1.5 text-[0.6rem] font-bold text-slate-600 hover:bg-slate-50"
+                onClick={() =>
+                  printPreCuenta({
+                    tableLabel: table?.label,
+                    serverName: serverName ?? undefined,
+                    items: cart.map((l) => ({
+                      name: l.name,
+                      qty: l.qty,
+                      unitPrice: l.unitPrice,
+                      lineTotal: l.qty * l.unitPrice,
+                    })),
+                    subtotal,
+                    discount: discountMeta?.amount ?? 0,
+                    total,
+                  })
+                }
+              >
+                🧾 Ver pre-cuenta
               </button>
             )}
           </>
