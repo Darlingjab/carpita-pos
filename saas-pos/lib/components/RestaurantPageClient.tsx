@@ -304,6 +304,16 @@ export function RestaurantPageClient({
     return m;
   }, [assignments]);
 
+  /** Resumen rápido del salón — mesas abiertas, ítems pendientes en cocina */
+  const floorSummary = useMemo(() => {
+    const openTables = Object.keys(assignments).length;
+    const kitchenPending = kitchenTickets.filter((t) => t.status !== "ready").length;
+    const kitchenItems = kitchenTickets
+      .filter((t) => t.status !== "ready")
+      .reduce((sum, t) => sum + t.items.reduce((s, i) => s + i.qty, 0), 0);
+    return { openTables, kitchenPending, kitchenItems };
+  }, [assignments, kitchenTickets]);
+
   const kitchenByTable = useMemo(() => {
     const map: Record<string, { status: "free" | "pending" | "ready"; oldestAt: string | null }> = {};
     for (const [tableId, a] of Object.entries(assignments)) {
@@ -447,6 +457,23 @@ export function RestaurantPageClient({
             sub === "mesas" && mobileMesasPane === "order" ? "max-lg:hidden" : ""
           }`}
         >
+          {sub === "mesas" && floorSummary.openTables > 0 && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-1.5">
+              <span className="flex items-center gap-1 rounded-full bg-slate-800 px-2.5 py-0.5 text-[0.6rem] font-bold text-white">
+                🍽️ {floorSummary.openTables} mesa{floorSummary.openTables !== 1 ? "s" : ""} abiert{floorSummary.openTables !== 1 ? "as" : "a"}
+              </span>
+              {floorSummary.kitchenPending > 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-[0.6rem] font-bold text-orange-800">
+                  🍳 {floorSummary.kitchenItems} ítem{floorSummary.kitchenItems !== 1 ? "s" : ""} en cocina
+                </span>
+              )}
+              {floorSummary.kitchenPending === 0 && (
+                <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[0.6rem] font-bold text-emerald-800">
+                  ✓ Cocina al día
+                </span>
+              )}
+            </div>
+          )}
           {sub === "mesas" ? (
             <TableFloorMap
               tables={tables}

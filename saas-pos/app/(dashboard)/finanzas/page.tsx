@@ -60,11 +60,11 @@ export default function FinanzasInformesPage() {
   const [kitchenTickets, setKitchenTickets] = useState<KitchenTicket[]>([]);
 
   const today = useMemo(() => new Date(), []);
-  const [from, setFrom] = useState(() => toDateInputValue(new Date(today.getTime() - 6 * 86400000)));
+  const [from, setFrom] = useState(() => toDateInputValue(today));
   const [to, setTo] = useState(() => toDateInputValue(today));
   const [quickRange, setQuickRange] = useState<
     "day" | "7" | "15" | "30" | "week" | "year" | "custom"
-  >("7");
+  >("day");
   const [serverFilter, setServerFilter] = useState<string>("all");
 
   useEffect(() => {

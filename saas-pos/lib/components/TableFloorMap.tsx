@@ -27,7 +27,14 @@ function waitLabel(oldestAt: string | null, nowMs: number) {
   if (!oldestAt) return "0m";
   const diff = Math.max(0, nowMs - new Date(oldestAt).getTime());
   const mins = Math.floor(diff / 60000);
+  if (mins >= 60) return `${Math.floor(mins / 60)}h ${mins % 60}m`;
   return `${mins}m`;
+}
+
+/** Minutos transcurridos desde que se abrió la mesa */
+function minsOpen(openedAt: string | null | undefined, nowMs: number): number {
+  if (!openedAt) return 0;
+  return Math.max(0, Math.floor((nowMs - new Date(openedAt).getTime()) / 60000));
 }
 
 function pointerToCell(
@@ -218,9 +225,16 @@ export function TableFloorMap({
           const waiter = assign?.serverName ?? es.restaurant.waiterUnassigned;
           const kitchen = kitchenByTable[t.id];
           const kStatus = kitchen?.status ?? (!!assign ? "pending" : "free");
-          const waiting = waitLabel(kitchen?.oldestAt ?? null, nowMs);
+          const waiting = waitLabel(kitchen?.oldestAt ?? assign?.openedAt ?? null, nowMs);
           const selected = selectedTableId === t.id;
           const shapeClass = "rounded-lg";
+          const openMins = minsOpen(assign?.openedAt, nowMs);
+          // Alerta de tiempo: naranja >90 min, rojo >120 min
+          const timeAlert = assign && openMins >= 120
+            ? "ring-2 ring-red-500 ring-offset-1"
+            : assign && openMins >= 90
+              ? "ring-2 ring-orange-400 ring-offset-1"
+              : "";
 
           const statusClasses = selected
             ? "ring-[3px] ring-amber-400 ring-offset-2 ring-offset-slate-100 shadow-lg"
@@ -235,7 +249,7 @@ export function TableFloorMap({
             <div
               className={`flex h-[min(3.5rem,20vw)] w-[min(3.5rem,20vw)] shrink-0 flex-col items-center justify-center border-2 px-0.5 py-0.5 text-center transition-[transform,box-shadow] sm:h-[min(4.25rem,18vw)] sm:w-[min(4.25rem,18vw)] sm:py-1 ${
                 shapeRound ? "rounded-full" : shapeClass
-              } ${statusClasses} ${
+              } ${statusClasses} ${timeAlert} ${
                 arrangeMode ? "cursor-grab active:cursor-grabbing" : "cursor-pointer hover:brightness-[1.02]"
               }`}
               style={{ margin: "auto" }}

@@ -182,7 +182,7 @@ export function AuditoriaView() {
 
   const [sales, setSales] = useState<Sale[] | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [preset, setPreset] = useState<TimePreset>("month");
+  const [preset, setPreset] = useState<TimePreset>("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [showStack, setShowStack] = useState(false);
@@ -349,10 +349,10 @@ export function AuditoriaView() {
       {/* KPIs */}
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { k: es.auditoria.kpiRevenue, v: fmtMoney(a.summary.totalRevenue), sub: formatVsPrev(a.summary.revenueChangePct) },
-          { k: es.auditoria.kpiProfit, v: fmtMoney(a.summary.netProfit), sub: formatVsPrev(a.summary.profitChangePct) },
-          { k: es.auditoria.kpiMargin, v: `${a.summary.marginPct.toFixed(1)} %`, sub: es.auditoria.kpiMarginHint },
-          { k: es.auditoria.kpiTicket, v: fmtMoney(a.summary.avgTicket), sub: `${a.summary.saleCount} ${es.auditoria.tickets}` },
+          { k: es.auditoria.kpiRevenue, v: fmtMoney(a.summary.totalRevenue), pct: a.summary.revenueChangePct, sub: null },
+          { k: es.auditoria.kpiProfit, v: fmtMoney(a.summary.netProfit), pct: a.summary.profitChangePct, sub: null },
+          { k: es.auditoria.kpiMargin, v: `${a.summary.marginPct.toFixed(1)} %`, pct: null, sub: es.auditoria.kpiMarginHint },
+          { k: es.auditoria.kpiTicket, v: fmtMoney(a.summary.avgTicket), pct: null, sub: `${a.summary.saleCount} ${es.auditoria.tickets}` },
         ].map((card) => (
           <div
             key={card.k}
@@ -360,7 +360,14 @@ export function AuditoriaView() {
           >
             <p className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">{card.k}</p>
             <p className="mt-1 text-xl font-black tabular-nums text-slate-900 sm:text-2xl">{card.v}</p>
-            <p className="mt-1 text-[0.7rem] text-slate-600">{card.sub}</p>
+            {card.pct != null && Number.isFinite(card.pct) ? (
+              <p className={`mt-1.5 flex items-center gap-1 text-[0.7rem] font-bold ${card.pct >= 0 ? "text-emerald-700" : "text-rose-600"}`}>
+                <span>{card.pct >= 0 ? "↑" : "↓"}</span>
+                <span>{Math.abs(card.pct).toFixed(1)}% vs período anterior</span>
+              </p>
+            ) : (
+              <p className="mt-1 text-[0.7rem] text-slate-600">{card.sub}</p>
+            )}
           </div>
         ))}
       </section>

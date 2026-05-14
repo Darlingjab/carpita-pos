@@ -13,6 +13,7 @@ type Props = {
 export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [guests, setGuests] = useState(1);
 
   useEffect(() => {
     fetch("/api/customers")
@@ -53,24 +54,39 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
           {es.restaurant.openTableTitle} {table.label}
         </h2>
         <p className="mt-1 text-xs text-slate-500">{es.restaurant.openTableHint}</p>
-        <label className="mt-4 block text-xs font-bold uppercase text-slate-500">
-          Cliente guardado (opcional)
-        </label>
-        <select
-          className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-sm"
-          style={{ borderColor: "var(--pos-border)" }}
-          value={selectedCustomerId}
-          onChange={(e) => {
-            const v = e.target.value;
-            setSelectedCustomerId(v);
-          }}
-        >
-          {options.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
+        <div className="mt-4 flex items-end gap-3">
+          <div className="flex-1">
+            <label className="block text-xs font-bold uppercase text-slate-500">
+              Cliente guardado (opcional)
+            </label>
+            <select
+              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-sm"
+              style={{ borderColor: "var(--pos-border)" }}
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+            >
+              {options.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="w-24 shrink-0">
+            <label className="block text-xs font-bold uppercase text-slate-500">
+              Comensales
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-center text-sm font-bold"
+              style={{ borderColor: "var(--pos-border)" }}
+              value={guests}
+              onChange={(e) => setGuests(Math.max(1, Number(e.target.value) || 1))}
+            />
+          </div>
+        </div>
         <div className="mt-4 flex gap-2">
           <button
             type="button"
@@ -84,9 +100,11 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
             className="btn-pos-primary flex-1 py-2.5 text-sm font-extrabold uppercase"
             onClick={() => {
               const selected = options.find((x) => x.id === selectedCustomerId) ?? null;
-              const name = selected?.name ?? es.restaurant.defaultCustomer;
+              const baseName = selected?.name ?? es.restaurant.defaultCustomer;
               const isDefault =
-                name.trim().toLowerCase() === es.restaurant.defaultCustomer.trim().toLowerCase();
+                baseName.trim().toLowerCase() === es.restaurant.defaultCustomer.trim().toLowerCase();
+              const guestSuffix = guests > 1 ? ` · ${guests} p.` : "";
+              const name = isDefault ? `${guests} persona${guests !== 1 ? "s" : ""}` : `${baseName}${guestSuffix}`;
               onConfirm(name, isDefault ? null : selected?.id ?? null);
             }}
           >

@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "carpita-pos",
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": ["-c", "cd /Users/d/Documents/carpita-pos/.claude/worktrees/flamboyant-heyrovsky-bde24c/saas-pos && PATH=/Users/d/.nvm/versions/node/v20.20.2/bin:$PATH npm run dev"],
+      "port": 3000,
+      "autoPort": true
+    }
+  ]
+}

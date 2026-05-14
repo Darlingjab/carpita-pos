@@ -4,6 +4,25 @@ import { useEffect, useMemo, useState } from "react";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 import type { Customer } from "@/lib/types";
 
+/** Segmentación rápida basada en puntos y fecha de registro */
+function getSegment(c: Customer): { label: string; color: string } {
+  const daysSinceCreated = (Date.now() - new Date(c.createdAt).getTime()) / 86400000;
+  if ((c.pointsBalance ?? 0) >= 100) return { label: "Frecuente", color: "bg-emerald-100 text-emerald-800" };
+  if ((c.pointsBalance ?? 0) >= 30) return { label: "Regular", color: "bg-blue-100 text-blue-800" };
+  if (daysSinceCreated < 14) return { label: "Nuevo", color: "bg-amber-100 text-amber-800" };
+  if ((c.pointsBalance ?? 0) === 0) return { label: "Sin actividad", color: "bg-slate-100 text-slate-600" };
+  return { label: "Ocasional", color: "bg-purple-100 text-purple-800" };
+}
+
+/** Siguiente milestone de puntos */
+function nextMilestone(pts: number): { target: number; pct: number } {
+  const tiers = [50, 100, 150];
+  for (const t of tiers) {
+    if (pts < t) return { target: t, pct: Math.round((pts / t) * 100) };
+  }
+  return { target: 150, pct: 100 };
+}
+
 function fmtPhone(p: string | null | undefined) {
   if (!p) return "—";
   return p;
@@ -180,73 +199,84 @@ export function ClientesClient() {
           <ExportCsvPeriodLinks hrefBase="/api/customers/export" label="Exportar CSV" />
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-          <table className="w-full min-w-[860px] border-collapse text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-xs font-extrabold uppercase text-slate-500">
-              <tr>
-                <th className="px-3 py-2">Nombre</th>
-                <th className="px-3 py-2">Teléfono</th>
-                <th className="px-3 py-2">Email</th>
-                <th className="px-3 py-2 text-right">Puntos</th>
-                <th className="px-3 py-2">Recompensas</th>
-                <th className="px-3 py-2">Creado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-b border-slate-100">
-                  <td className="px-3 py-2 font-semibold">{c.name}</td>
-                  <td className="px-3 py-2 text-slate-600">{fmtPhone(c.phone)}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.email ?? "—"}</td>
-                  <td className="px-3 py-2 text-right font-black tabular-nums text-slate-800">
-                    {fmtInt(c.pointsBalance ?? 0)}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1.5">
-                      {(
-                        [
-                          { tier: 50 as const, label: reward50 },
-                          { tier: 100 as const, label: reward100 },
-                          { tier: 150 as const, label: reward150 },
-                        ] as const
-                      ).map((r) => {
-                        const ok = (c.pointsBalance ?? 0) >= r.tier;
-                        return (
-                          <button
-                            key={r.tier}
-                            type="button"
-                            disabled={!ok}
-                            className={`rounded-full border px-2 py-1 text-[0.65rem] font-extrabold uppercase tracking-wide ${
-                              ok
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
-                                : "border-slate-200 bg-slate-50 text-slate-400"
-                            }`}
-                            title={r.label}
-                            onClick={() => void redeem(c.id, r.tier)}
-                          >
-                            {ok ? `Reclamar ${r.tier}` : `${r.tier}`}
-                          </button>
-                        );
-                      })}
+        <div className="space-y-2">
+          {filtered.length === 0 && (
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-12 text-center text-slate-500">
+              Sin clientes registrados
+            </div>
+          )}
+          {filtered.map((c) => {
+            const pts = c.pointsBalance ?? 0;
+            const { label: segLabel, color: segColor } = getSegment(c);
+            const { target, pct } = nextMilestone(pts);
+            return (
+              <div key={c.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{c.name}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[0.6rem] font-extrabold uppercase ${segColor}`}>
+                        {segLabel}
+                      </span>
                     </div>
-                    <p className="mt-1 text-[0.65rem] text-slate-500">
-                      Disponible si el cliente llega a 50/100/150. Al reclamar se descuentan puntos.
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {fmtPhone(c.phone)}{c.email ? ` · ${c.email}` : ""}
+                      {" · "}{new Date(c.createdAt).toLocaleDateString("es-EC")}
                     </p>
-                  </td>
-                  <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">
-                    {new Date(c.createdAt).toLocaleString("es-EC")}
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-slate-500">
-                    Sin clientes
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-black tabular-nums text-slate-900">{fmtInt(pts)} <span className="text-xs font-semibold text-slate-500">pts</span></p>
+                  </div>
+                </div>
+                {/* Barra de progreso de puntos */}
+                <div className="mt-3">
+                  <div className="mb-1 flex justify-between text-[0.6rem] text-slate-500">
+                    <span>{pts} pts actuales</span>
+                    <span>Próxima recompensa: {target} pts</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-amber-400 to-emerald-500 transition-all"
+                      style={{ width: `${Math.min(100, pct)}%` }}
+                    />
+                  </div>
+                </div>
+                {/* Canjear recompensas */}
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {(
+                    [
+                      { tier: 50 as const, label: reward50 },
+                      { tier: 100 as const, label: reward100 },
+                      { tier: 150 as const, label: reward150 },
+                    ] as const
+                  ).map((r) => {
+                    const ok = pts >= r.tier;
+                    return (
+                      <button
+                        key={r.tier}
+                        type="button"
+                        disabled={!ok}
+                        title={ok ? `Canjear: ${r.label}` : `Faltan ${r.tier - pts} puntos`}
+                        className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-bold ${
+                          ok
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100"
+                            : "border-slate-100 bg-slate-50 text-slate-400"
+                        }`}
+                        onClick={() => {
+                          if (!ok) return;
+                          if (window.confirm(`Canjear ${r.tier} puntos por: "${r.label}"?\n\nEsto descontará ${r.tier} puntos del cliente.`)) {
+                            void redeem(c.id, r.tier);
+                          }
+                        }}
+                      >
+                        {ok ? "🎁" : "🔒"} {r.tier} pts → {r.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

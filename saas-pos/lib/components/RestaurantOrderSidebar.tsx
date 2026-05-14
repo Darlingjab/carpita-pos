@@ -1079,15 +1079,14 @@ export function RestaurantOrderSidebar({
                   startCheckout();
                 }}
                 disabled={cart.length > 0 ? !canCharge : !(mode === "table" && table && onCloseTable)}
-                className="btn-pos-primary py-2 text-[0.65rem] font-extrabold uppercase tracking-wide disabled:opacity-40"
+                className="rounded-lg py-2 text-[0.65rem] font-extrabold uppercase tracking-wide text-white shadow disabled:opacity-40 bg-emerald-600 hover:bg-emerald-700 transition-colors"
               >
                 {cart.length > 0 ? es.pos.checkout : `${es.restaurant.closeTable}`}
               </button>
               <button
                 type="button"
                 disabled={!canSendKitchen}
-                className="rounded-lg py-2 text-[0.65rem] font-extrabold uppercase text-white shadow disabled:opacity-40"
-                style={{ backgroundColor: "var(--pos-primary)" }}
+                className="rounded-lg py-2 text-[0.65rem] font-extrabold uppercase text-white shadow disabled:opacity-40 bg-orange-500 hover:bg-orange-600 transition-colors"
                 onClick={() => void sendKitchen()}
               >
                 {es.orderFlow.sendKitchen}

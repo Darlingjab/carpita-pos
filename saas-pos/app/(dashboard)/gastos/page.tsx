@@ -4,22 +4,28 @@ import { useCallback, useEffect, useState } from "react";
 import type { RegisterMovement } from "@/lib/types";
 
 const CATEGORIAS = [
+  { value: "Insumos", label: "Insumos" },
   { value: "Operativo", label: "Operativo" },
   { value: "Proveedor", label: "Proveedor" },
+  { value: "Nómina", label: "Nómina" },
   { value: "Personal", label: "Personal" },
   { value: "Servicios", label: "Servicios" },
   { value: "Mantenimiento", label: "Mantenimiento" },
+  { value: "Marketing", label: "Marketing" },
   { value: "Otro", label: "Otro" },
 ] as const;
 
 type Categoria = (typeof CATEGORIAS)[number]["value"];
 
 const CATEGORY_COLORS: Record<Categoria, string> = {
+  Insumos: "bg-green-100 text-green-700",
   Operativo: "bg-blue-100 text-blue-700",
   Proveedor: "bg-purple-100 text-purple-700",
+  Nómina: "bg-rose-100 text-rose-700",
   Personal: "bg-yellow-100 text-yellow-700",
   Servicios: "bg-teal-100 text-teal-700",
   Mantenimiento: "bg-orange-100 text-orange-700",
+  Marketing: "bg-pink-100 text-pink-700",
   Otro: "bg-slate-100 text-slate-600",
 };
 
@@ -50,10 +56,12 @@ export default function GastosPage() {
   const [movements, setMovements] = useState<RegisterMovement[]>([]);
   const [concepto, setConcepto] = useState("");
   const [monto, setMonto] = useState("");
-  const [categoria, setCategoria] = useState<Categoria>("Operativo");
+  const [categoria, setCategoria] = useState<Categoria>("Insumos");
   const [registerOpen, setRegisterOpen] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<"hoy" | "todo">("todo");
 
   const fetchMovements = useCallback(async () => {
     try {
@@ -109,7 +117,9 @@ export default function GastosPage() {
       }
       setConcepto("");
       setMonto("");
-      setCategoria("Operativo");
+      setCategoria("Insumos");
+      setFlash("¡Gasto registrado correctamente!");
+      setTimeout(() => setFlash(null), 3000);
       await fetchMovements();
     } catch {
       setError("Error de conexión.");
@@ -118,25 +128,53 @@ export default function GastosPage() {
     }
   };
 
-  const total = movements.reduce((acc, m) => acc + m.amount, 0);
+  const filteredMovements = movements.filter((m) => {
+    if (dateFilter === "hoy") {
+      const d = new Date(m.createdAt);
+      const t = new Date();
+      return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth() && d.getDate() === t.getDate();
+    }
+    return true;
+  });
+  const total = filteredMovements.reduce((acc, m) => acc + m.amount, 0);
   const totalPorCategoria = CATEGORIAS.map(({ value }) => ({
     categoria: value,
-    total: movements
+    total: filteredMovements
       .filter((m) => parseMovementNote(m.note).categoria === value)
       .reduce((acc, m) => acc + m.amount, 0),
   })).filter((c) => c.total > 0);
 
   return (
     <div className="animate-fade-in space-y-6 p-4 sm:p-6">
+      {/* Flash */}
+      {flash && (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm">
+          <span>✓</span> {flash}
+        </div>
+      )}
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">Gastos</h1>
-          <p className="mt-1 text-sm text-slate-500">Salidas de caja registradas en esta sesión</p>
+          <p className="mt-1 text-sm text-slate-500">Salidas de caja del período</p>
         </div>
-        <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-right">
-          <p className="text-xs font-medium text-red-400">Total gastos</p>
-          <p className="text-2xl font-black text-red-700">${total.toFixed(2)}</p>
+        <div className="flex items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg border border-slate-200 bg-white">
+            {(["hoy", "todo"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setDateFilter(f)}
+                className={`px-3 py-1.5 text-xs font-bold uppercase ${dateFilter === f ? "bg-slate-800 text-white" : "text-slate-600 hover:bg-slate-50"}`}
+              >
+                {f === "hoy" ? "Hoy" : "Todo"}
+              </button>
+            ))}
+          </div>
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-right">
+            <p className="text-xs font-medium text-red-400">Total gastos</p>
+            <p className="text-2xl font-black text-red-700">${total.toFixed(2)}</p>
+          </div>
         </div>
       </div>
 
@@ -214,14 +252,14 @@ export default function GastosPage() {
 
       {/* Lista */}
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {movements.length === 0 ? (
+        {filteredMovements.length === 0 ? (
           <div className="px-4 py-12 text-center text-slate-400">
             <p className="text-4xl">🧾</p>
-            <p className="mt-2 text-sm">Sin gastos registrados en esta sesión</p>
+            <p className="mt-2 text-sm">Sin gastos registrados{dateFilter === "hoy" ? " hoy" : " en esta sesión"}</p>
           </div>
         ) : (
           <ul className="divide-y divide-slate-100">
-            {movements.map((m) => {
+            {filteredMovements.map((m) => {
               const { categoria: cat, concepto: desc } = parseMovementNote(m.note);
               return (
                 <li key={m.id} className="flex items-center gap-3 px-4 py-3">

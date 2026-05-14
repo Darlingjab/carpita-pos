@@ -1,20 +1,16 @@
 import Link from "next/link";
 import { KitchenDisplayClient } from "@/lib/components/KitchenDisplayClient";
-import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 import { Tv2 } from "lucide-react";
 
 export default function CocinaPage() {
   return (
     <section className="space-y-2">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900">Cocina · KDS</h1>
           <p className="mt-1 text-sm text-slate-500">
             Los pedidos llegan automáticamente al enviar desde Restaurante. Se actualiza cada 4 s.
           </p>
-          <div className="mt-2">
-            <ExportCsvPeriodLinks hrefBase="/api/kitchen/tickets/export" label="Exportar cocina CSV" />
-          </div>
         </div>
         <Link
           href="/cocina/pantalla"

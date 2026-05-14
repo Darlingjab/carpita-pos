@@ -63,6 +63,7 @@ export function ProductsAdminView() {
 
   const [activeCatState, setActiveCatState] = useState("");
   const activeCat = cats.includes(activeCatState) ? activeCatState : (cats[0] ?? "");
+  const [productSearch, setProductSearch] = useState("");
 
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editMap, setEditMap] = useState<Record<string, { name: string; price: number; cost: number }>>({});
@@ -73,8 +74,11 @@ export function ProductsAdminView() {
 
   const filteredProducts = useMemo(() => {
     if (!activeCat) return [];
-    return products.filter((p) => categoryNameOf(p.categoryId, demoCategories) === activeCat);
-  }, [products, activeCat]);
+    const catFiltered = products.filter((p) => categoryNameOf(p.categoryId, demoCategories) === activeCat);
+    if (!productSearch.trim()) return catFiltered;
+    const q = productSearch.trim().toLowerCase();
+    return catFiltered.filter((p) => p.name.toLowerCase().includes(q) || String(productNumericCode(p)).includes(q));
+  }, [products, activeCat, productSearch]);
 
   const applyOverrides = useCallback((updater: (m: OverrideMap) => OverrideMap) => {
     setOverrides((prev) => {
@@ -263,6 +267,19 @@ export function ProductsAdminView() {
                 </div>
               </div>
 
+              {/* Buscador de productos */}
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  type="search"
+                  placeholder="Buscar producto…"
+                  className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--pos-primary)]/30"
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                />
+                {productSearch && (
+                  <button type="button" className="text-xs text-slate-400 hover:text-slate-700" onClick={() => setProductSearch("")}>✕</button>
+                )}
+              </div>
               <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] border-collapse text-left">
@@ -272,6 +289,7 @@ export function ProductsAdminView() {
                         <th className="px-3 py-3 sm:px-4">{es.productsAdmin.name}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">{es.productsAdmin.price}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">{es.productsAdmin.cost}</th>
+                        <th className="w-20 px-2 py-3">Margen</th>
                         <th className="w-24 px-2 py-3">{es.productsAdmin.posFavorite}</th>
                         <th className="w-28 px-2 py-3 sm:w-32">
                           {isEditingCategory ? es.productsAdmin.action : es.productsAdmin.status}
@@ -350,6 +368,19 @@ export function ProductsAdminView() {
                             ) : (
                               `$${(p.cost ?? 0).toFixed(2)}`
                             )}
+                          </td>
+                          <td className="px-2 py-3 text-xs font-bold tabular-nums">
+                            {p.price > 0 ? (
+                              <span className={
+                                ((p.price - (p.cost ?? 0)) / p.price) >= 0.4
+                                  ? "text-emerald-700"
+                                  : ((p.price - (p.cost ?? 0)) / p.price) >= 0.2
+                                    ? "text-amber-700"
+                                    : "text-rose-700"
+                              }>
+                                {(((p.price - (p.cost ?? 0)) / p.price) * 100).toFixed(0)}%
+                              </span>
+                            ) : <span className="text-slate-400">—</span>}
                           </td>
                           <td className="px-2 py-3">
                             <button

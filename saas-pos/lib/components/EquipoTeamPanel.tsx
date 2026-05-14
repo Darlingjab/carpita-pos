@@ -35,11 +35,13 @@ export function EquipoTeamPanel() {
   const [meta, setMeta] = useState<{ canManageUsers: boolean; staffEmailDomain: string } | null>(null);
   const [me, setMe] = useState<AppUser | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
   const load = useCallback(() => {
+    setIsLoading(true);
     fetch("/api/users")
       .then((r) => {
         if (r.status === 403) {
@@ -54,7 +56,8 @@ export function EquipoTeamPanel() {
         setUsers(d.data ?? []);
         setMeta(d.meta ?? { canManageUsers: false, staffEmailDomain: "local" });
       })
-      .catch(() => setLoadError("No se pudo cargar el equipo."));
+      .catch(() => setLoadError("No se pudo cargar el equipo."))
+      .finally(() => setIsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -72,6 +75,16 @@ export function EquipoTeamPanel() {
   const domain = meta?.staffEmailDomain ?? "local";
 
   const editUser = useMemo(() => users.find((u) => u.id === editId) ?? null, [users, editId]);
+
+  if (isLoading) {
+    return (
+      <div className="animate-pulse space-y-3">
+        {[1, 2, 3].map((n) => (
+          <div key={n} className="h-20 rounded-xl bg-slate-100" />
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-6">

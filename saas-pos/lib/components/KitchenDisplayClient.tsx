@@ -241,9 +241,16 @@ export function KitchenDisplayClient() {
   return (
     <div className="flex min-h-[min(70dvh,560px)] flex-col gap-3 lg:flex-row lg:items-stretch">
       <section className="min-h-0 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <h3 className="border-b border-slate-100 pb-2 text-sm font-black uppercase tracking-wide text-slate-800">
-          {es.kds.prepTitle}
-        </h3>
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
+            {es.kds.prepTitle}
+          </h3>
+          {activeGroups.size > 0 && (
+            <span className="rounded-full bg-orange-100 px-2.5 py-0.5 text-[0.6rem] font-extrabold text-orange-800">
+              {activeGroups.size} en prep.
+            </span>
+          )}
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {[...activeGroups.entries()].map(([key, list]) => {
             const label = displayLabel(list[0]);
@@ -330,9 +337,16 @@ export function KitchenDisplayClient() {
       </section>
 
       <aside className="w-full shrink-0 rounded-xl border border-slate-200 bg-slate-50 p-3 shadow-sm lg:w-80 xl:w-96">
-        <h3 className="border-b border-slate-200 pb-2 text-xs font-black uppercase tracking-wide text-slate-700">
-          {es.kds.pastTitle}
-        </h3>
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+          <h3 className="text-xs font-black uppercase tracking-wide text-slate-700">
+            {es.kds.pastTitle}
+          </h3>
+          {pastGroups.length > 0 && (
+            <span className="rounded-full bg-emerald-600 px-2.5 py-0.5 text-[0.6rem] font-extrabold text-white">
+              {pastGroups.length} completado{pastGroups.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
         <ul className="mt-2 max-h-[min(60dvh,520px)] space-y-2 overflow-y-auto">
           {pastGroups.length === 0 && (
             <li className="rounded-lg border border-dashed border-slate-200 bg-white py-6 text-center text-xs text-slate-500">

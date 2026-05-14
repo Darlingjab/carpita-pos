@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Printer, Users } from "lucide-react";
+import { Building2, Printer, Users } from "lucide-react";
 import { EquipoTeamPanel } from "@/lib/components/EquipoTeamPanel";
 import {
   defaultPrinterSettings,
@@ -11,16 +11,20 @@ import {
   type PrinterTicketSettings,
 } from "@/lib/printer-settings";
 
-type ConfigTab = "ajustes" | "equipo";
+const RESTAURANT_PROFILE_KEY = "pos_restaurant_profile_v1";
+type RestaurantProfile = { name: string; tagline: string; logoUrl: string; phone: string; address: string };
+const defaultProfile: RestaurantProfile = { name: "", tagline: "", logoUrl: "", phone: "", address: "" };
+
+type ConfigTab = "ajustes" | "equipo" | "restaurante";
 
 const TABS: { id: ConfigTab; label: string; icon: LucideIcon }[] = [
-  { id: "ajustes", label: "Ajustes de impresora", icon: Printer },
+  { id: "restaurante", label: "Restaurante", icon: Building2 },
+  { id: "ajustes", label: "Impresora", icon: Printer },
   { id: "equipo", label: "Equipo", icon: Users },
 ];
 
-
 function parseTab(v: string | null): ConfigTab {
-  if (v === "equipo" || v === "ajustes") return v;
+  if (v === "equipo" || v === "ajustes" || v === "restaurante") return v;
   return "equipo"; // default: equipo es la sección más usada desde el nav
 }
 
@@ -32,6 +36,8 @@ export function ConfigPageClient() {
 
   const [printer, setPrinter] = useState<PrinterTicketSettings>(defaultPrinterSettings);
   const [savedFlash, setSavedFlash] = useState(false);
+  const [profile, setProfile] = useState<RestaurantProfile>(defaultProfile);
+  const [profileFlash, setProfileFlash] = useState(false);
 
   useEffect(() => {
     try {
@@ -40,7 +46,19 @@ export function ConfigPageClient() {
     } catch {
       /* ignore */
     }
+    try {
+      const p = localStorage.getItem(RESTAURANT_PROFILE_KEY);
+      if (p) setProfile({ ...defaultProfile, ...JSON.parse(p) });
+    } catch {
+      /* ignore */
+    }
   }, []);
+
+  const saveProfile = () => {
+    localStorage.setItem(RESTAURANT_PROFILE_KEY, JSON.stringify(profile));
+    setProfileFlash(true);
+    window.setTimeout(() => setProfileFlash(false), 2200);
+  };
 
   function setTab(next: ConfigTab) {
     const qs = new URLSearchParams(searchParams.toString());
@@ -50,7 +68,7 @@ export function ConfigPageClient() {
 
   useEffect(() => {
     const raw = searchParams.get("tab");
-    if (raw && raw !== "ajustes" && raw !== "equipo") {
+    if (raw && raw !== "ajustes" && raw !== "equipo" && raw !== "restaurante") {
       const qs = new URLSearchParams(searchParams.toString());
       qs.set("tab", "equipo");
       router.replace(`${pathname}?${qs.toString()}`, { scroll: false });
@@ -95,6 +113,84 @@ export function ConfigPageClient() {
         </div>
 
         <div className="min-h-[320px] p-4 sm:p-6">
+          {tab === "restaurante" && (
+            <div className="animate-fade-in space-y-6">
+              <div>
+                <h2 className="text-base font-black text-slate-900">Perfil del restaurante</h2>
+                <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                  Nombre, logo y datos de contacto que aparecen en el sistema.
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                <div className="grid gap-5 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Nombre del restaurante</label>
+                    <input
+                      className="input-base mt-1.5 w-full text-sm"
+                      placeholder="Ej. Carpita Restaurante"
+                      value={profile.name}
+                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Slogan / descripción corta</label>
+                    <input
+                      className="input-base mt-1.5 w-full text-sm"
+                      placeholder="Ej. El mejor sabor de la ciudad"
+                      value={profile.tagline}
+                      onChange={(e) => setProfile({ ...profile, tagline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Teléfono</label>
+                    <input
+                      className="input-base mt-1.5 w-full text-sm"
+                      placeholder="Ej. +593 99 999 9999"
+                      value={profile.phone}
+                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">Dirección</label>
+                    <input
+                      className="input-base mt-1.5 w-full text-sm"
+                      placeholder="Ej. Av. Principal 123"
+                      value={profile.address}
+                      onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">URL del logo (imagen)</label>
+                    <input
+                      className="input-base mt-1.5 w-full text-sm"
+                      placeholder="https://…/logo.png"
+                      value={profile.logoUrl}
+                      onChange={(e) => setProfile({ ...profile, logoUrl: e.target.value })}
+                    />
+                    {profile.logoUrl && (
+                      <div className="mt-3 flex items-center gap-3">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={profile.logoUrl} alt="Logo" className="h-16 w-16 rounded-lg border border-slate-200 object-contain p-1" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        <p className="text-xs text-slate-500">Vista previa del logo</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-6 flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="btn-pos-primary rounded-lg px-5 py-2.5 text-sm font-extrabold uppercase text-white"
+                    onClick={saveProfile}
+                  >
+                    Guardar perfil
+                  </button>
+                  {profileFlash && (
+                    <span className="text-sm font-semibold text-emerald-700">✓ Guardado</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           {tab === "ajustes" && (
             <div className="animate-fade-in space-y-6">
               <div>

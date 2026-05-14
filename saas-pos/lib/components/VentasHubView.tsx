@@ -97,7 +97,7 @@ export function VentasHubView() {
   const [movFilter, setMovFilter] = useState<MovimientoFilter>("todos");
   const [sales, setSales] = useState<Sale[]>([]);
   const [movements, setMovements] = useState<RegisterMovement[]>([]);
-  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerOpen, setRegisterOpen] = useState<boolean | null>(null);
   const [openingFloat, setOpeningFloat] = useState(0);
   const [openFormHasBase, setOpenFormHasBase] = useState(true);
   const [openFormAmount, setOpenFormAmount] = useState("");
@@ -111,6 +111,7 @@ export function VentasHubView() {
   const [adjustNote, setAdjustNote] = useState("");
   const [arqueosBusy, setArqueosBusy] = useState(false);
   const [arqueosHistorySource, setArqueosHistorySource] = useState<ArqueosHistorySource>("import");
+  const [movSearch, setMovSearch] = useState("");
 
   useEffect(() => {
     if (tabParam === "arqueos") {
@@ -459,9 +460,9 @@ export function VentasHubView() {
 
   const tabs: { key: SubTab; label: string; icon: LucideIcon; badge?: string | null }[] = useMemo(
     () => [
-      { key: "reportes", label: "Reportes Pro", icon: BarChart3 },
+      { key: "reportes", label: "Resumen", icon: BarChart3 },
       { key: "movimientos", label: "Movimientos de caja", icon: CreditCard },
-      { key: "arqueos", label: "Arqueos de caja", icon: Archive, badge: registerOpen ? "Abierto" : null },
+      { key: "arqueos", label: "Arqueos de caja", icon: Archive, badge: registerOpen === true ? "Abierto" : null },
     ],
     [registerOpen],
   );
@@ -492,7 +493,7 @@ export function VentasHubView() {
           }}
         />
       )}
-      {!registerOpen && subTab !== "arqueos" && (
+      {registerOpen === false && subTab !== "arqueos" && (
         <div
           className="flex flex-wrap items-center gap-2 border-b px-4 py-2 text-sm"
           style={{ backgroundColor: "#fffbeb", borderColor: "#fcd34d", color: "#92400e" }}
@@ -608,6 +609,40 @@ export function VentasHubView() {
 
         {subTab === "movimientos" && (
           <div className="animate-fade-in space-y-3">
+            {/* KPI cards */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                <p className="text-[0.65rem] font-bold uppercase text-emerald-600">Ingresos hoy</p>
+                <p className="mt-1 text-xl font-black text-emerald-800">${revenueToday.toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Ventas hoy</p>
+                <p className="mt-1 text-xl font-black text-slate-800">{salesToday.length}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Ticket promedio</p>
+                <p className="mt-1 text-xl font-black text-slate-800">${avgTicket.toFixed(2)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-white p-3 shadow-sm">
+                <p className="text-[0.65rem] font-bold uppercase text-slate-500">Con descuento</p>
+                <p className="mt-1 text-xl font-black text-slate-800">{discountsToday.length}</p>
+              </div>
+            </div>
+            {/* Buscador */}
+            {(movFilter === "ventas" || movFilter === "todos") && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="search"
+                  placeholder="Buscar por mesa, mesero, monto…"
+                  className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--pos-primary)]/30"
+                  value={movSearch}
+                  onChange={(e) => setMovSearch(e.target.value)}
+                />
+                {movSearch && (
+                  <button type="button" className="text-xs text-slate-400 hover:text-slate-700" onClick={() => setMovSearch("")}>✕ Limpiar</button>
+                )}
+              </div>
+            )}
             <p className="text-xs text-slate-500">
               {movFilter === "ventas" && "Historial de ventas registradas."}
               {movFilter === "descuentos" && "Tickets con descuento aplicado."}
@@ -680,16 +715,16 @@ export function VentasHubView() {
                       extraParams={{ format: "csv", source: "imported" }}
                     />
                   </div>
-                  {importSalesSorted.length > 200 && (
+                  {importSalesSorted.length > 200 && !movSearch && (
                     <p className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                       Vista previa: 200 filas de {importSalesSorted.length.toLocaleString("es-EC")}. Exportá CSV para el
                       listado completo por período.
                     </p>
                   )}
+                  <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
-                        <th className="px-3 py-3">ID</th>
                         <th className="px-3 py-3">Fecha</th>
                         <th className="px-3 py-3">Canal</th>
                         <th className="px-3 py-3">Cliente</th>
@@ -700,9 +735,20 @@ export function VentasHubView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {importSalesSorted.slice(0, 200).map((s) => (
-                        <tr key={s.id} className="border-b border-slate-100">
-                          <td className="px-3 py-2 font-mono text-xs text-slate-500">{s.id}</td>
+                      {importSalesSorted
+                        .filter((s) => {
+                          if (!movSearch) return true;
+                          const q = movSearch.toLowerCase();
+                          return (
+                            (s.tableId ?? "").toLowerCase().includes(q) ||
+                            (s.serverName ?? "").toLowerCase().includes(q) ||
+                            (s.customerName ?? "").toLowerCase().includes(q) ||
+                            s.total.toFixed(2).includes(q)
+                          );
+                        })
+                        .slice(0, 200)
+                        .map((s) => (
+                        <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className="px-3 py-2">{fmtDT(s.createdAt)}</td>
                           <td className="px-3 py-2 capitalize">{s.channel}</td>
                           <td className="max-w-[120px] truncate px-3 py-2 text-slate-600" title={s.customerName ?? ""}>
@@ -723,6 +769,7 @@ export function VentasHubView() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                   {importSalesSorted.length === 0 && (
                     <p className="p-8 text-center text-slate-500">Sin ventas en el import.</p>
                   )}
@@ -808,10 +855,10 @@ export function VentasHubView() {
                 <h2 className="text-lg font-bold text-slate-900">{es.arqueosHub.sectionOperations}</h2>
                 <p className="mt-2 text-sm text-slate-700">
                   Estado:{" "}
-                  <strong className={registerOpen ? "text-emerald-700" : "text-rose-600"}>
-                    {registerOpen
+                  <strong className={registerOpen === true ? "text-emerald-700" : registerOpen === false ? "text-rose-600" : "text-slate-500"}>
+                    {registerOpen === true
                       ? `Caja abierta (última base declarada $${openingFloat.toFixed(2)})`
-                      : "Caja cerrada"}
+                      : registerOpen === false ? "Caja cerrada" : "Verificando estado…"}
                   </strong>
                 </p>
 
@@ -822,7 +869,7 @@ export function VentasHubView() {
                       type="checkbox"
                       checked={openFormHasBase}
                       onChange={(e) => setOpenFormHasBase(e.target.checked)}
-                      disabled={registerOpen}
+                      disabled={registerOpen === true}
                     />
                     ¿Inicias con dinero de base en caja?
                   </label>
@@ -839,14 +886,14 @@ export function VentasHubView() {
                         value={openFormAmount}
                         onChange={(e) => setOpenFormAmount(e.target.value)}
                         placeholder="0.00"
-                        disabled={registerOpen}
+                        disabled={registerOpen === true}
                       />
                     </>
                   )}
                   <button
                     type="button"
                     onClick={() => void submitOpenRegister()}
-                    disabled={registerOpen}
+                    disabled={registerOpen === true}
                     className="btn-pos-primary mt-4 w-full py-2.5 text-sm font-extrabold uppercase text-white disabled:opacity-45"
                   >
                     {es.register.open}
@@ -868,9 +915,9 @@ export function VentasHubView() {
                     className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:opacity-50"
                     value={closeFormAmount}
                     onChange={(e) => setCloseFormAmount(e.target.value)}
-                    disabled={!registerOpen}
+                    disabled={registerOpen !== true}
                   />
-                  {registerOpen && closeFormAmount !== "" && (
+                  {registerOpen === true && closeFormAmount !== "" && (
                     <p className="mt-2 text-sm font-medium text-slate-700">
                       {es.register.difference}: $
                       {((Number(closeFormAmount) || 0) - expectedRunning).toFixed(2)}
@@ -880,7 +927,7 @@ export function VentasHubView() {
                   <button
                     type="button"
                     onClick={() => void submitCloseRegister()}
-                    disabled={!registerOpen}
+                    disabled={registerOpen !== true}
                     className="mt-3 w-full rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-extrabold uppercase text-slate-800 disabled:opacity-45"
                   >
                     {es.register.close}
