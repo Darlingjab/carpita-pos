@@ -201,6 +201,13 @@ export function RestaurantPageClient({
   const confirmOpenTable = useCallback(
     (clientName: string, customerId: string | null) => {
       if (!modalTableId) return;
+      // Sesión completamente nueva: borrar borrador anterior de esta mesa para
+      // que no aparezcan productos de sesiones pasadas (pedidos ya cobrados, etc.)
+      try {
+        localStorage.removeItem(`pos_order_draft:table:${modalTableId}`);
+      } catch {
+        /* ignore */
+      }
       void upsertTableAssignment(modalTableId, {
         serverId: currentUser.id,
         serverName: currentUser.fullName,
@@ -228,6 +235,13 @@ export function RestaurantPageClient({
   const closeTable = useCallback(async () => {
     const currentTableId = session?.tableId ?? null;
     if (currentTableId) {
+      // Limpiar borrador de localStorage al cerrar mesa oficialmente,
+      // así la próxima sesión en la misma mesa comienza en blanco.
+      try {
+        localStorage.removeItem(`pos_order_draft:table:${currentTableId}`);
+      } catch {
+        /* ignore */
+      }
       try {
         const res = await fetch("/api/kitchen/tickets");
         const data = await res.json().catch(() => ({}));
