@@ -139,7 +139,7 @@ export const es = {
     selectCategory: "Selecciona una categoría para gestionar sus productos",
     historic: "(Histórico)",
     catalogHint:
-      "Menú: colocá exports/productos 2.xls y ejecutá npm run import:productos (o import:exports si ya tenés ventas ahí). La categoría «Histórico — tipo de venta» viene del CSV por tickets con import:exports.",
+      "El catálogo se carga desde el panel de administración. Contactá con soporte si necesitás importar productos.",
   },
   roles: {
     admin: "Administrador",
@@ -181,7 +181,7 @@ export const es = {
     sectionHistory: "Historial de arqueos y movimientos (últimos 30 días)",
     historyHint: "Incluye aperturas, cierres, ingresos por ventas y egresos registrados en el período.",
     closeOnlyWhenOpen: "Cierra la caja solo cuando esté abierta.",
-    registerRedirectNote: "Esta sección reemplaza el módulo anterior de «Caja».",
+    registerRedirectNote: "",
     sectionMonthly: "Historial mensual de caja",
     monthlyHint:
       "Todos los movimientos quedan guardados. El saldo esperado usa la misma regla que arriba (incluye ajustes). Anular no borra filas: agrega un ajuste que revierte el efecto en caja.",
@@ -365,7 +365,7 @@ export const es = {
   auditoria: {
     title: "Análisis y rentabilidad",
     subtitle:
-      "BCG y tabla por producto usan solo líneas del catálogo (ventana Productos). Los tickets del CSV histórico no traen platos por línea; siguen contando en totales y en gráficos por hora/día.",
+      "Clasificación de productos, márgenes estimados y distribución de ventas por hora y día.",
     loading: "Cargando ventas…",
     needLogin: "Inicia sesión para ver auditoría.",
     loadError: "No se pudieron cargar las ventas.",
@@ -404,7 +404,7 @@ export const es = {
     matrixEmpty: "No hay datos para graficar en este período.",
     chartHours: "Tickets por hora del día",
     chartHoursHint:
-      "Etiquetas HH:00 en {tz} (mismo reloj y formato que «Hora pico»). Cada barra = tickets en ese tramo; el pico por fila es el tramo donde ese producto vendió más unidades. Si el CSV venía sin zona, alinea NEXT_PUBLIC_BUSINESS_TIMEZONE con IMPORT_SALES_WALL_OFFSET y vuelve a importar.",
+      "Cada barra representa los tickets en ese tramo horario. El pico indica la hora de mayor demanda por producto.",
     chartHoursAxisTz: "Eje en hora local del negocio ({tz}).",
     chartDays: "Ingresos por día de la semana",
     chartDaysHint:

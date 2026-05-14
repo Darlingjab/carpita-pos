@@ -17,7 +17,7 @@ export type PrinterTicketSettings = {
 };
 
 export const defaultPrinterSettings: PrinterTicketSettings = {
-  storeName: "Mi local",
+  storeName: "Carpita",
   paperWidth: "80mm",
   autoPrint: true,
   footerLine: "",

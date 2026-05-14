@@ -227,7 +227,7 @@ export default function FinanzasInformesPage() {
                   {source === "imported" ? "Importados (documentos)" : "Sesión actual"}
                 </strong>
                 {source === "imported" && (
-                  <span className="text-slate-500"> · {historic.exportedSaleCount} ventas en la app (semilla) · {historic.transactionCount} en el archivo</span>
+                  <span className="text-slate-500"> · {historic.transactionCount.toLocaleString("es-EC")} ventas históricas</span>
                 )}
               </p>
             </div>

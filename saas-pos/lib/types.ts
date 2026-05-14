@@ -8,6 +8,7 @@ export type Permission =
   | "sales.refund"
   | "register.open"
   | "register.close"
+  | "register.movements"
   | "reports.read"
   | "products.manage"
   | "users.manage"
@@ -33,14 +34,23 @@ export interface AppUser {
   enabled?: boolean;
 }
 
-/** Registro interno (demo: contraseña en claro para que el admin la vea). */
+/** Registro interno de cuenta de usuario. */
 export interface UserAccountRow {
   id: string;
   businessId: string;
   fullName: string;
   email: string;
   role: RoleName;
-  passwordPlain: string;
+  /**
+   * Contraseña hasheada con scrypt.
+   * Formato: $scrypt$N=16384,r=8,p=1$<salt_hex>$<hash_hex>
+   */
+  passwordHash?: string;
+  /**
+   * @deprecated Solo presente en datos legacy / migración.
+   * Se reemplaza por passwordHash en el primer login o cambio de contraseña.
+   */
+  passwordPlain?: string;
   enabled: boolean;
   /** Permisos del rol que están desactivados para este usuario */
   disabledPermissions: Permission[];

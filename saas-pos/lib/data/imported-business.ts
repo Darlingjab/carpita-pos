@@ -4,7 +4,7 @@ export const importedBusinessId = "biz_imported";
 
 export const importedBusiness: Business = {
   id: importedBusinessId,
-  name: "Negocio (catálogo importado)",
+  name: "Carpita",
   type: "restaurant",
   currency: "USD",
 };

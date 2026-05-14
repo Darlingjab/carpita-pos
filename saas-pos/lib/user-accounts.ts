@@ -1,7 +1,13 @@
+import { randomUUID } from "crypto";
 import { demoBusinessId, rolePermissions } from "@/lib/mock-data";
+import { hashPassword, verifyPassword } from "@/lib/password";
 import type { AppUser, Permission, RoleName, UserAccountRow } from "@/lib/types";
 import { uniqueStaffEmail } from "@/lib/staff-email";
 
+/**
+ * Contraseñas en texto plano solo para los seeds iniciales.
+ * Se migran a passwordHash automáticamente en el primer verifyLogin.
+ */
 const rows: UserAccountRow[] = [
   {
     id: "usr_admin",
@@ -70,10 +76,27 @@ export function findRowByEmail(email: string): UserAccountRow | null {
   return rows.find((r) => r.email.toLowerCase() === e) ?? null;
 }
 
+/**
+ * Verifica email + contraseña.
+ * Si el registro tiene solo passwordPlain (datos legacy), lo migra a passwordHash automáticamente.
+ */
 export function verifyLogin(email: string, password: string): AppUser | null {
   const r = findRowByEmail(email);
   if (!r || !r.enabled) return null;
-  if (r.passwordPlain !== password) return null;
+
+  if (r.passwordHash) {
+    // Ruta normal: verificar con scrypt
+    if (!verifyPassword(password, r.passwordHash)) return null;
+  } else if (r.passwordPlain !== undefined) {
+    // Migración: contraseña legacy en texto plano
+    if (r.passwordPlain !== password) return null;
+    // Migrar a hash y limpiar el texto plano
+    r.passwordHash = hashPassword(password);
+    delete r.passwordPlain;
+  } else {
+    return null;
+  }
+
   return toAppUser(r);
 }
 
@@ -89,7 +112,8 @@ function countEnabledAdmins(): number {
 export function createUserAccount(input: {
   fullName: string;
   email: string;
-  passwordPlain: string;
+  /** Contraseña en texto plano (se hashea internamente). */
+  password: string;
   role: RoleName;
   enabled?: boolean;
   disabledPermissions?: Permission[];
@@ -98,12 +122,12 @@ export function createUserAccount(input: {
   if (!email || !input.fullName.trim()) return null;
   if (emailTaken(email)) return null;
   const row: UserAccountRow = {
-    id: `usr_${Date.now()}`,
+    id: randomUUID(),
     businessId: demoBusinessId,
     fullName: input.fullName.trim(),
     email,
     role: input.role,
-    passwordPlain: input.passwordPlain,
+    passwordHash: hashPassword(input.password),
     enabled: input.enabled !== false,
     disabledPermissions: [...(input.disabledPermissions ?? [])],
   };
@@ -116,7 +140,8 @@ export function updateUserAccount(
   patch: Partial<{
     fullName: string;
     email: string;
-    passwordPlain: string;
+    /** Nueva contraseña en texto plano (se hashea internamente). */
+    password: string;
     role: RoleName;
     enabled: boolean;
     disabledPermissions: Permission[];
@@ -131,7 +156,10 @@ export function updateUserAccount(
     if (ne) r.email = ne;
   }
   if (patch.fullName !== undefined) r.fullName = patch.fullName.trim();
-  if (patch.passwordPlain !== undefined) r.passwordPlain = patch.passwordPlain;
+  if (patch.password !== undefined) {
+    r.passwordHash = hashPassword(patch.password);
+    delete r.passwordPlain;
+  }
   if (patch.role !== undefined) {
     const nextRole = patch.role;
     if (r.role === "admin" && nextRole !== "admin" && countEnabledAdmins() <= 1 && r.enabled) {
@@ -167,9 +195,19 @@ export function deleteUserAccount(id: string): boolean {
 export function changeOwnPassword(userId: string, currentPassword: string, newPassword: string): boolean {
   const r = findRowById(userId);
   if (!r || !r.enabled) return false;
-  if (r.passwordPlain !== currentPassword) return false;
   if (!newPassword || newPassword.length < 4) return false;
-  r.passwordPlain = newPassword;
+
+  // Verificar contraseña actual (soporta hash y legacy)
+  if (r.passwordHash) {
+    if (!verifyPassword(currentPassword, r.passwordHash)) return false;
+  } else if (r.passwordPlain !== undefined) {
+    if (r.passwordPlain !== currentPassword) return false;
+  } else {
+    return false;
+  }
+
+  r.passwordHash = hashPassword(newPassword);
+  delete r.passwordPlain;
   return true;
 }
 

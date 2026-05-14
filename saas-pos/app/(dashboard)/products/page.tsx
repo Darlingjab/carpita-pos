@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ProductsAdminView } from "@/lib/components/ProductsAdminView";
-import { LegacySectionStub } from "@/lib/components/LegacySectionStub";
+import { InventarioView } from "@/lib/components/InventarioView";
 
 type Props = {
   searchParams?: Promise<{ tab?: string }>;
@@ -38,15 +38,9 @@ export default async function ProductsPage({ searchParams }: Props) {
       {tab === "productos" ? (
         <ProductsAdminView />
       ) : (
-        <LegacySectionStub
-          title="Inventario"
-          description="Insumos, recetas y mermas como en InventarioView. Pendiente: enlazar con Supabase y movimientos de stock."
-          legacyFile="pages/InventarioView.jsx"
-        >
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white/80 p-8 text-center text-sm text-slate-500">
-            Tabla de insumos y ajustes (próxima iteración).
-          </div>
-        </LegacySectionStub>
+        <div className="animate-fade-in">
+          <InventarioView />
+        </div>
       )}
     </div>
   );

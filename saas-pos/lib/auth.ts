@@ -4,17 +4,26 @@ import { demoBusiness, rolePermissions } from "@/lib/mock-data";
 import { AppUser, Permission } from "@/lib/types";
 import { canAccessPath } from "@/lib/role-access";
 import { pullRuntimeFromCloud } from "@/lib/cloud-sync";
-import { findRowByEmail, findRowById, getDefaultAppUser, toAppUser } from "@/lib/user-accounts";
+import { findRowById, getDefaultAppUser, toAppUser } from "@/lib/user-accounts";
+import { verifySession } from "@/lib/session";
+
+export const COOKIE_NAME = "pos_session";
 
 /** @deprecated Las credenciales viven en cuentas de usuario (`user-accounts`). */
 export const DEMO_CREDENTIALS = {} as Record<string, { password: string; role: string }>;
 
+/** Lee y valida la cookie de sesión. Devuelve el userId o null. */
+async function getSessionUserId(): Promise<string | null> {
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value ?? "";
+  return verifySession(token);
+}
+
 export async function getCurrentUserMock(): Promise<AppUser> {
   await pullRuntimeFromCloud();
-  const store = await cookies();
-  const email = store.get("pos_demo_user")?.value?.toLowerCase();
-  if (!email) return getDefaultAppUser();
-  const row = findRowByEmail(email);
+  const userId = await getSessionUserId();
+  if (!userId) return getDefaultAppUser();
+  const row = findRowById(userId);
   if (!row || !row.enabled) {
     redirect("/login");
   }
@@ -23,10 +32,9 @@ export async function getCurrentUserMock(): Promise<AppUser> {
 
 export async function getSessionUserOrNull(): Promise<AppUser | null> {
   await pullRuntimeFromCloud();
-  const store = await cookies();
-  const email = store.get("pos_demo_user")?.value?.toLowerCase();
-  if (!email) return null;
-  const row = findRowByEmail(email);
+  const userId = await getSessionUserId();
+  if (!userId) return null;
+  const row = findRowById(userId);
   if (!row || !row.enabled) return null;
   return toAppUser(row);
 }
@@ -45,4 +53,3 @@ export function hasPermission(user: AppUser, permission: Permission) {
 export function isAdminOnlyPath(pathname: string): boolean {
   return !canAccessPath("cashier", pathname);
 }
-

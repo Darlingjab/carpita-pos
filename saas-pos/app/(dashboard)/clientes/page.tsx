@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { LegacySectionStub } from "@/lib/components/LegacySectionStub";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 import type { Customer } from "@/lib/types";
 
@@ -20,9 +19,9 @@ export function ClientesClient() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [q, setQ] = useState("");
-  const [reward50, setReward50] = useState("Premio 50 pts");
-  const [reward100, setReward100] = useState("Premio 100 pts");
-  const [reward150, setReward150] = useState("Premio 150 pts");
+  const [reward50, setReward50] = useState("Descuento 10%");
+  const [reward100, setReward100] = useState("Almuerzo gratis");
+  const [reward150, setReward150] = useState("2×1 en bebidas");
 
   useEffect(() => {
     try {
@@ -102,11 +101,13 @@ export function ClientesClient() {
   };
 
   return (
-    <LegacySectionStub
-      title="Clientes"
-      description="Clientes guardados (demo local en memoria). Permite crear y luego seleccionarlos al abrir mesa."
-      legacyFile="pages/CashierDashboard.jsx (ClientesView)"
-    >
+    <div className="animate-fade-in space-y-6">
+      <div>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">Clientes</h1>
+        <p className="mt-1 text-sm text-slate-500">
+          Registrá clientes para asignarlos a mesas y acumular puntos de fidelidad automáticamente.
+        </p>
+      </div>
       <div className="space-y-4">
         <div className="grid gap-2 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-6">
           <div className="sm:col-span-2">
@@ -248,7 +249,7 @@ export function ClientesClient() {
           </table>
         </div>
       </div>
-    </LegacySectionStub>
+    </div>
   );
 }
 
