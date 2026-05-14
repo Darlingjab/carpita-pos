@@ -224,25 +224,40 @@ export function TableFloorMap({
           const assign = assignments[t.id];
           const waiter = assign?.serverName ?? es.restaurant.waiterUnassigned;
           const kitchen = kitchenByTable[t.id];
-          const kStatus = kitchen?.status ?? (!!assign ? "pending" : "free");
+          // Estado real de la mesa:
+          // "free"    → sin asignación (libre)
+          // "open"    → asignada pero sin pedidos en cocina
+          // "pending" → cocina cocinando (pedidos pendientes)
+          // "ready"   → cocina lista, mesa a punto de cerrar
+          const tableState: "free" | "open" | "pending" | "ready" = !assign
+            ? "free"
+            : !kitchen
+              ? "open"
+              : kitchen.status === "ready"
+                ? "ready"
+                : kitchen.status === "pending" || kitchen.status === "free"
+                  ? (kitchen.status === "free" ? "open" : "pending")
+                  : "pending";
           const waiting = waitLabel(kitchen?.oldestAt ?? assign?.openedAt ?? null, nowMs);
           const selected = selectedTableId === t.id;
           const shapeClass = "rounded-lg";
           const openMins = minsOpen(assign?.openedAt, nowMs);
-          // Alerta de tiempo: naranja >90 min, rojo >120 min
+          // Alerta de tiempo: ring naranja >90 min, ring rojo >120 min
           const timeAlert = assign && openMins >= 120
-            ? "ring-2 ring-red-500 ring-offset-1"
+            ? "ring-2 ring-red-600 ring-offset-1"
             : assign && openMins >= 90
-              ? "ring-2 ring-orange-400 ring-offset-1"
+              ? "ring-2 ring-orange-500 ring-offset-1"
               : "";
 
           const statusClasses = selected
-            ? "ring-[3px] ring-amber-400 ring-offset-2 ring-offset-slate-100 shadow-lg"
-            : kStatus === "pending"
-              ? "border-rose-300 bg-gradient-to-br from-rose-100 to-rose-50 text-rose-950 shadow-md"
-              : kStatus === "ready"
-                ? "border-amber-300 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-950 shadow-md"
-                : "border-emerald-300 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-md";
+            ? "ring-[3px] ring-blue-400 ring-offset-2 ring-offset-slate-100 shadow-lg border-blue-300 bg-blue-50 text-blue-950"
+            : tableState === "pending"
+              ? "border-orange-400 bg-gradient-to-br from-orange-100 to-orange-50 text-orange-950 shadow-md"
+              : tableState === "ready"
+                ? "border-amber-400 bg-gradient-to-br from-amber-100 to-amber-50 text-amber-950 shadow-md"
+                : tableState === "open"
+                  ? "border-sky-300 bg-gradient-to-br from-sky-50 to-white text-sky-950 shadow-sm"
+                  : "border-emerald-400 bg-gradient-to-br from-emerald-100 to-emerald-50 text-emerald-950 shadow-sm";
 
           const shapeRound = cell.shape === "round";
           const inner = (
@@ -261,8 +276,16 @@ export function TableFloorMap({
               <span className="mt-0.5 line-clamp-1 max-w-full px-0.5 text-[0.5rem] font-semibold leading-none opacity-90 sm:text-[0.53rem]" title={waiter}>
                 {waiter}
               </span>
-              <span className="mt-0.5 rounded bg-white/70 px-1 py-0.5 text-[0.48rem] font-extrabold leading-none text-slate-700 sm:text-[0.5rem]">
-                {waiting}
+              <span className={`mt-0.5 rounded px-1 py-0.5 text-[0.48rem] font-extrabold leading-none sm:text-[0.5rem] ${
+                tableState === "free" ? "bg-emerald-200/70 text-emerald-900" :
+                tableState === "open" ? "bg-sky-200/70 text-sky-900" :
+                tableState === "pending" ? "bg-orange-200/70 text-orange-900" :
+                "bg-amber-200/70 text-amber-900"
+              }`}>
+                {tableState === "free" ? "Libre" :
+                 tableState === "open" ? waiting :
+                 tableState === "ready" ? "✓ Lista" :
+                 `🍳 ${waiting}`}
               </span>
               {arrangeMode && (
                 <span className="mt-0.5 rounded bg-white/90 px-1 py-0.5 text-[0.5rem] font-extrabold uppercase text-slate-700 shadow">
@@ -305,6 +328,26 @@ export function TableFloorMap({
             </div>
           );
         })}
+      </div>
+      {/* Leyenda de colores */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200/70 bg-slate-50 px-3 py-1.5">
+        {([
+          { color: "bg-emerald-200 border-emerald-400", label: "Libre" },
+          { color: "bg-sky-100 border-sky-300", label: "Abierta" },
+          { color: "bg-orange-100 border-orange-400", label: "Cocinando" },
+          { color: "bg-amber-100 border-amber-400", label: "Lista para cerrar" },
+        ] as const).map((s) => (
+          <span key={s.label} className="flex items-center gap-1 text-[0.6rem] font-semibold text-slate-600">
+            <span className={`h-2.5 w-2.5 shrink-0 rounded border ${s.color}`} />
+            {s.label}
+          </span>
+        ))}
+        <span className="ml-auto flex items-center gap-1 text-[0.6rem] text-slate-400">
+          <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-orange-500 bg-transparent" />
+          &gt;90 min
+          <span className="ml-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-red-600 bg-transparent" />
+          &gt;2 h
+        </span>
       </div>
     </section>
   );

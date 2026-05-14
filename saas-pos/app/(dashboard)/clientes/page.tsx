@@ -41,6 +41,17 @@ export function ClientesClient() {
   const [reward50, setReward50] = useState("Descuento 10%");
   const [reward100, setReward100] = useState("Almuerzo gratis");
   const [reward150, setReward150] = useState("2×1 en bebidas");
+  const [rewardFlash, setRewardFlash] = useState(false);
+  const [myRole, setMyRole] = useState<string | null>(null);
+
+  const isAdmin = myRole === "admin";
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setMyRole(d?.data?.role ?? null))
+      .catch(() => setMyRole(null));
+  }, []);
 
   useEffect(() => {
     try {
@@ -95,10 +106,13 @@ export function ClientesClient() {
   };
 
   const saveRewards = () => {
+    if (!isAdmin) return;
     localStorage.setItem(
       "pos_rewards_cfg_v1",
       JSON.stringify({ r50: reward50, r100: reward100, r150: reward150 }),
     );
+    setRewardFlash(true);
+    window.setTimeout(() => setRewardFlash(false), 2200);
   };
 
   const redeem = async (customerId: string, tier: 50 | 100 | 150) => {
@@ -153,7 +167,18 @@ export function ClientesClient() {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-extrabold uppercase text-slate-600">Plan de recompensas</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-extrabold uppercase text-slate-600">Plan de recompensas</p>
+            {isAdmin ? (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[0.6rem] font-bold uppercase text-emerald-700">
+                Admin — puede editar
+              </span>
+            ) : (
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[0.6rem] font-bold uppercase text-slate-600">
+                Solo lectura
+              </span>
+            )}
+          </div>
           <p className="mt-1 text-sm text-slate-700">
             En ventas por <strong>mesa</strong>: <strong>1 punto por cada $1</strong> del total (redondeo hacia abajo).
           </p>
@@ -161,27 +186,40 @@ export function ClientesClient() {
             Los puntos se acumulan automáticamente al cobrar una mesa con un cliente seleccionado.
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-[0.65rem] font-black uppercase text-slate-500">50 puntos</p>
-              <input className="input-base mt-1 w-full text-sm" value={reward50} onChange={(e) => setReward50(e.target.value)} />
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-[0.65rem] font-black uppercase text-slate-500">100 puntos</p>
-              <input className="input-base mt-1 w-full text-sm" value={reward100} onChange={(e) => setReward100(e.target.value)} />
-            </div>
-            <div className="rounded-lg border border-slate-200 bg-white p-3">
-              <p className="text-[0.65rem] font-black uppercase text-slate-500">150 puntos</p>
-              <input className="input-base mt-1 w-full text-sm" value={reward150} onChange={(e) => setReward150(e.target.value)} />
-            </div>
-            <div className="sm:col-span-3">
-              <button
-                type="button"
-                className="mt-1 w-full rounded-lg border border-slate-200 bg-white py-2 text-xs font-bold"
-                onClick={saveRewards}
-              >
-                Guardar recompensas
-              </button>
-            </div>
+            {(
+              [
+                { pts: 50, val: reward50, set: setReward50 },
+                { pts: 100, val: reward100, set: setReward100 },
+                { pts: 150, val: reward150, set: setReward150 },
+              ] as const
+            ).map(({ pts, val, set }) => (
+              <div key={pts} className="rounded-lg border border-slate-200 bg-white p-3">
+                <p className="text-[0.65rem] font-black uppercase text-slate-500">{pts} puntos</p>
+                {isAdmin ? (
+                  <input
+                    className="input-base mt-1 w-full text-sm"
+                    value={val}
+                    onChange={(e) => set(e.target.value)}
+                  />
+                ) : (
+                  <p className="mt-1.5 text-sm font-semibold text-slate-800">{val}</p>
+                )}
+              </div>
+            ))}
+            {isAdmin && (
+              <div className="flex items-center gap-3 sm:col-span-3">
+                <button
+                  type="button"
+                  className="btn-pos-primary rounded-lg px-5 py-2 text-xs font-extrabold uppercase"
+                  onClick={saveRewards}
+                >
+                  Guardar recompensas
+                </button>
+                {rewardFlash && (
+                  <span className="text-xs font-semibold text-emerald-600">✓ Guardado</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

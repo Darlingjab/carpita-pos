@@ -112,6 +112,7 @@ export function VentasHubView() {
   const [arqueosBusy, setArqueosBusy] = useState(false);
   const [arqueosHistorySource, setArqueosHistorySource] = useState<ArqueosHistorySource>("import");
   const [movSearch, setMovSearch] = useState("");
+  const [arqueosQuickFilter, setArqueosQuickFilter] = useState<"today" | "7d" | "30d" | "month" | "all">("7d");
 
   useEffect(() => {
     if (tabParam === "arqueos") {
@@ -249,12 +250,28 @@ export function VentasHubView() {
   }, [movements]);
 
   const arqueosFiltered = useMemo(() => {
+    const now = Date.now();
     const list = [...movements].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-    if (arqueosMonthKey === "all") return list;
-    return list.filter((m) => monthKeyFromIso(m.createdAt) === arqueosMonthKey);
-  }, [movements, arqueosMonthKey]);
+    // Apply quick filter for POS source
+    const quickFiltered = (() => {
+      if (arqueosQuickFilter === "all") return list;
+      if (arqueosQuickFilter === "today") {
+        const todayStr = new Date().toDateString();
+        return list.filter((m) => new Date(m.createdAt).toDateString() === todayStr);
+      }
+      if (arqueosQuickFilter === "7d") return list.filter((m) => now - new Date(m.createdAt).getTime() <= 7 * 86400000);
+      if (arqueosQuickFilter === "30d") return list.filter((m) => now - new Date(m.createdAt).getTime() <= 30 * 86400000);
+      if (arqueosQuickFilter === "month") {
+        const cur = monthKeyFromIso(new Date().toISOString());
+        return list.filter((m) => monthKeyFromIso(m.createdAt) === cur);
+      }
+      return list;
+    })();
+    if (arqueosMonthKey === "all") return quickFiltered;
+    return quickFiltered.filter((m) => monthKeyFromIso(m.createdAt) === arqueosMonthKey);
+  }, [movements, arqueosMonthKey, arqueosQuickFilter]);
 
   const monthCashSum = useMemo(
     () => arqueosFiltered.reduce((acc, m) => acc + registerMovementCashDelta(m), 0),
@@ -649,78 +666,71 @@ export function VentasHubView() {
               {movFilter === "gastos" && "Salidas de caja registradas en el período."}
             </p>
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              {(movFilter === "todos" || movFilter === "gastos") && (
-                <div className="flex flex-wrap items-center justify-end gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2">
-                  {movFilter === "todos" && (
-                    <ExportCsvPeriodLinks
-                      hrefBase="/api/import/sales-movements/export"
-                      label="Exportar CSV"
-                    />
-                  )}
-                </div>
-              )}
-
               {movFilter === "todos" && (
                 <>
-                  {importMovements.length > IMPORT_MOV_UI_CAP && (
-                    <p className="border-b border-amber-100 bg-amber-50/80 px-3 py-2 text-xs text-amber-950">
-                      Mostrando las {IMPORT_MOV_UI_CAP} más recientes de {importMovements.length.toLocaleString("es-EC")}{" "}
-                      ventas. Usá «Exportar CSV» para bajar el período completo.
-                    </p>
-                  )}
-                  <table className="w-full border-collapse text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                      <tr>
-                        <th className="px-3 py-3">Tipo</th>
-                        <th className="px-3 py-3">Monto</th>
-                        <th className="px-3 py-3">Nota</th>
-                        <th className="px-3 py-3">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {importMovements.slice(0, IMPORT_MOV_UI_CAP).map((m) => {
-                        const d = registerMovementCashDelta(m);
+                  {(() => {
+                    const sorted = [...movements]
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                      .filter((m) => {
+                        if (!movSearch) return true;
+                        const q = movSearch.toLowerCase();
                         return (
-                          <tr key={m.id} className="border-b border-slate-100">
-                            <td className="px-3 py-2">{movementTypeLabel(m.type)}</td>
-                            <td className="px-3 py-2 font-semibold tabular-nums">
-                              <span className="block">${Math.abs(Number(m.amount) || 0).toFixed(2)}</span>
-                              {m.type === "adjustment" && (
-                                <span
-                                  className={`text-[0.65rem] font-bold ${d >= 0 ? "text-emerald-600" : "text-rose-600"}`}
-                                >
-                                  Δ caja {d >= 0 ? "+" : ""}${d.toFixed(2)}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-3 py-2 text-slate-600">{m.note ?? "—"}</td>
-                            <td className="px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
-                          </tr>
+                          (m.note ?? "").toLowerCase().includes(q) ||
+                          movementTypeLabel(m.type).toLowerCase().includes(q) ||
+                          String(m.amount ?? "").includes(q)
                         );
-                      })}
-                    </tbody>
-                  </table>
-                  {importMovements.length === 0 && (
-                    <p className="p-6 text-center text-slate-500">Sin movimientos en el import.</p>
-                  )}
+                      });
+                    return sorted.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-sm">
+                          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                            <tr>
+                              <th className="px-3 py-3">Tipo</th>
+                              <th className="px-3 py-3 text-right">Monto</th>
+                              <th className="px-3 py-3">Nota</th>
+                              <th className="px-3 py-3">Fecha</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sorted.map((m) => {
+                              const d = registerMovementCashDelta(m);
+                              return (
+                                <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                  <td className="px-3 py-2">
+                                    <span className={`inline-block rounded px-1.5 py-0.5 text-xs font-bold ${
+                                      m.type === "in" ? "bg-emerald-100 text-emerald-800" :
+                                      m.type === "out" ? "bg-rose-100 text-rose-800" :
+                                      m.type === "open" ? "bg-sky-100 text-sky-800" :
+                                      m.type === "close" ? "bg-slate-100 text-slate-700" :
+                                      "bg-amber-100 text-amber-800"
+                                    }`}>
+                                      {movementTypeLabel(m.type)}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                                    <span className={d > 0 ? "text-emerald-700" : d < 0 ? "text-rose-700" : "text-slate-600"}>
+                                      {d > 0 ? "+" : ""}{d !== 0 ? `$${d.toFixed(2)}` : `$${Math.abs(Number(m.amount) || 0).toFixed(2)}`}
+                                    </span>
+                                  </td>
+                                  <td className="max-w-[200px] truncate px-3 py-2 text-xs text-slate-600">{m.note ?? "—"}</td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="p-8 text-center text-slate-500">
+                        {movements.length === 0 ? "Sin movimientos aún. Abre la caja para empezar." : "Sin resultados para tu búsqueda."}
+                      </p>
+                    );
+                  })()}
                 </>
               )}
 
               {movFilter === "ventas" && (
                 <>
-                  <div className="flex flex-wrap justify-end border-b border-slate-100 bg-slate-50 px-3 py-2">
-                    <ExportCsvPeriodLinks
-                      hrefBase="/api/sales/export"
-                      label="Exportar ventas CSV"
-                      extraParams={{ format: "csv", source: "imported" }}
-                    />
-                  </div>
-                  {importSalesSorted.length > 200 && !movSearch && (
-                    <p className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                      Vista previa: 200 filas de {importSalesSorted.length.toLocaleString("es-EC")}. Exportá CSV para el
-                      listado completo por período.
-                    </p>
-                  )}
                   <div className="overflow-x-auto">
                   <table className="w-full min-w-[640px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
@@ -735,7 +745,8 @@ export function VentasHubView() {
                       </tr>
                     </thead>
                     <tbody>
-                      {importSalesSorted
+                      {[...sales]
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                         .filter((s) => {
                           if (!movSearch) return true;
                           const q = movSearch.toLowerCase();
@@ -746,10 +757,9 @@ export function VentasHubView() {
                             s.total.toFixed(2).includes(q)
                           );
                         })
-                        .slice(0, 200)
                         .map((s) => (
                         <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
-                          <td className="px-3 py-2">{fmtDT(s.createdAt)}</td>
+                          <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(s.createdAt)}</td>
                           <td className="px-3 py-2 capitalize">{s.channel}</td>
                           <td className="max-w-[120px] truncate px-3 py-2 text-slate-600" title={s.customerName ?? ""}>
                             {s.customerName ?? "—"}
@@ -761,7 +771,7 @@ export function VentasHubView() {
                           <td className="max-w-[140px] truncate px-3 py-2 text-xs text-slate-600">
                             {(s.discount ?? 0) > 0
                               ? `${s.discountType ?? ""} ${s.discountPercent != null ? `${s.discountPercent}%` : ""} ${s.discountDescription ?? ""}`.trim() ||
-                                `−$${s.discount.toFixed(2)}`
+                                `−$${(s.discount ?? 0).toFixed(2)}`
                               : "—"}
                           </td>
                           <td className="px-3 py-2 text-right font-bold text-emerald-700">${s.total.toFixed(2)}</td>
@@ -770,36 +780,33 @@ export function VentasHubView() {
                     </tbody>
                   </table>
                   </div>
-                  {importSalesSorted.length === 0 && (
-                    <p className="p-8 text-center text-slate-500">Sin ventas en el import.</p>
+                  {sales.length === 0 && (
+                    <p className="p-8 text-center text-slate-500">Sin ventas registradas aún en esta sesión.</p>
                   )}
                 </>
               )}
 
               {movFilter === "descuentos" && (
                 <>
-                  <div className="flex flex-wrap justify-end border-b border-slate-100 bg-slate-50 px-3 py-2">
-                    <ExportCsvPeriodLinks
-                      hrefBase="/api/sales/export"
-                      label="Exportar ventas CSV"
-                      extraParams={{ format: "csv", source: "imported" }}
-                    />
-                  </div>
+                  <div className="overflow-x-auto">
                   <table className="w-full min-w-[560px] border-collapse text-left text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
                       <tr>
-                        {es.ventasDiscounts.cols.map((h) => (
-                          <th key={h} className="px-3 py-3">
-                            {h}
-                          </th>
-                        ))}
+                        <th className="px-3 py-3">Fecha</th>
+                        <th className="px-3 py-3">Tipo dto.</th>
+                        <th className="px-3 py-3">Descripción</th>
+                        <th className="px-3 py-3">%</th>
+                        <th className="px-3 py-3">Descuento</th>
+                        <th className="px-3 py-3 text-right">Total</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {salesWithDiscountImport.slice(0, IMPORT_MOV_UI_CAP).map((s) => (
-                        <tr key={s.id} className="border-b border-slate-100">
-                          <td className="px-3 py-2 font-mono text-xs">{s.id}</td>
-                          <td className="px-3 py-2">{fmtDT(s.createdAt)}</td>
+                      {[...sales]
+                        .filter((s) => (s.discount ?? 0) > 0)
+                        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                        .map((s) => (
+                        <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50">
+                          <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(s.createdAt)}</td>
                           <td className="px-3 py-2 capitalize">{s.discountType ?? "—"}</td>
                           <td className="max-w-[160px] truncate px-3 py-2" title={s.discountDescription ?? ""}>
                             {s.discountDescription ?? "—"}
@@ -811,16 +818,49 @@ export function VentasHubView() {
                       ))}
                     </tbody>
                   </table>
-                  {salesWithDiscountImport.length === 0 && (
-                    <p className="p-8 text-center text-slate-500">Sin ventas con descuento en el import.</p>
+                  </div>
+                  {sales.filter((s) => (s.discount ?? 0) > 0).length === 0 && (
+                    <p className="p-8 text-center text-slate-500">Sin ventas con descuento en esta sesión.</p>
                   )}
                 </>
               )}
 
               {movFilter === "gastos" && (
-                <p className="p-8 text-center text-sm text-slate-500">
-                  No hay gastos de caja en el reporte importado.
-                </p>
+                <>
+                  {(() => {
+                    const gastos = [...movements]
+                      .filter((m) => m.type === "out")
+                      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                    return gastos.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="w-full border-collapse text-sm">
+                          <thead className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                            <tr>
+                              <th className="px-3 py-3">Fecha</th>
+                              <th className="px-3 py-3 text-right">Monto</th>
+                              <th className="px-3 py-3">Concepto / nota</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {gastos.map((m) => (
+                              <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
+                                <td className="whitespace-nowrap px-3 py-2 text-xs">{fmtDT(m.createdAt)}</td>
+                                <td className="px-3 py-2 text-right font-semibold tabular-nums text-rose-700">
+                                  −${Math.abs(Number(m.amount) || 0).toFixed(2)}
+                                </td>
+                                <td className="max-w-[280px] truncate px-3 py-2 text-sm text-slate-700">{m.note ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="p-8 text-center text-sm text-slate-500">
+                        Sin gastos registrados. Añade un gasto desde la pestaña Gastos.
+                      </p>
+                    );
+                  })()}
+                </>
               )}
             </div>
           </div>
@@ -831,25 +871,36 @@ export function VentasHubView() {
             {es.arqueosHub.registerRedirectNote && (
               <p className="text-xs text-slate-500">{es.arqueosHub.registerRedirectNote}</p>
             )}
-            <div className="flex flex-col items-end gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-              {arqueosHistorySource === "import" ? (
-                <>
-                  <ExportCsvPeriodLinks
-                    hrefBase="/api/import/sales-movements/export"
-                    label="Detalle reporte CSV"
-                  />
-                  <ExportCsvPeriodLinks
-                    hrefBase="/api/import/register-monthly/export"
-                    label="Resumen mensual CSV"
-                  />
-                </>
-              ) : (
-                <ExportCsvPeriodLinks
-                  hrefBase="/api/register/movements/export"
-                  label="Movimientos POS CSV"
-                />
-              )}
-            </div>
+            {arqueosHistorySource === "pos" && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[0.65rem] font-bold uppercase tracking-wide text-slate-500">Período:</span>
+                {(["today", "7d", "30d", "month", "all"] as const).map((f) => {
+                  const labels = { today: "Hoy", "7d": "7 días", "30d": "30 días", month: "Este mes", all: "Todo" };
+                  return (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setArqueosQuickFilter(f)}
+                      className={`rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                        arqueosQuickFilter === f
+                          ? "border-[var(--pos-primary)] bg-white text-[var(--pos-primary)] shadow-sm"
+                          : "border-transparent bg-white/60 text-slate-600 hover:border-slate-200 hover:bg-white"
+                      }`}
+                      style={arqueosQuickFilter === f ? { borderColor: "var(--pos-primary)", color: "var(--pos-primary)" } : undefined}
+                    >
+                      {labels[f]}
+                    </button>
+                  );
+                })}
+                <a
+                  href="/api/register/movements/export"
+                  className="ml-auto flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+                  download
+                >
+                  ↓ Descargar CSV
+                </a>
+              </div>
+            )}
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 className="text-lg font-bold text-slate-900">{es.arqueosHub.sectionOperations}</h2>
