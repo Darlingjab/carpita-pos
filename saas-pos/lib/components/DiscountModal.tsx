@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DiscountType } from "@/lib/types";
 import { es } from "@/lib/locale";
 
@@ -23,6 +23,14 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
   const [percent, setPercent] = useState("");
   const [amountCustom, setAmountCustom] = useState("");
   const [mode, setMode] = useState<"percent" | "amount">("percent");
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   function applyPreset(p: number) {
     setMode("percent");
@@ -58,9 +66,10 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 p-3"
       role="dialog"
       aria-modal="true"
+      aria-labelledby="discount-modal-title"
     >
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
-        <h2 className="text-base font-black text-slate-900">{es.discountModal.title}</h2>
+        <h2 id="discount-modal-title" className="text-base font-black text-slate-900">{es.discountModal.title}</h2>
         <p className="mt-1 text-xs text-slate-500">
           {es.discountModal.subtotalLabel}: ${subtotal.toFixed(2)}
         </p>

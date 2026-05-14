@@ -62,6 +62,7 @@ export function TableFloorMap({
   const gridRef = useRef<HTMLDivElement>(null);
   const [arrangeMode, setArrangeMode] = useState(false);
   const [grid, setGrid] = useState<GridFloorState>(() => defaultGridState(tables));
+  const [resetConfirm, setResetConfirm] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const gridLive = useRef(grid);
   gridLive.current = grid;
@@ -82,12 +83,11 @@ export function TableFloorMap({
   }, []);
 
   const handleReset = () => {
-    if (
-      !window.confirm(
-        "¿Restaurar el plano en cuadrícula por defecto? Se perderá la disposición guardada.",
-      )
-    )
-      return;
+    setResetConfirm(true);
+  };
+
+  const executeReset = () => {
+    setResetConfirm(false);
     persist(defaultGridState(tables));
   };
 
@@ -275,10 +275,10 @@ export function TableFloorMap({
               <span className="text-[0.66rem] font-black tabular-nums leading-none sm:text-[0.74rem]">
                 {t.label}
               </span>
-              <span className="mt-0.5 line-clamp-1 max-w-full px-0.5 text-[0.5rem] font-semibold leading-none opacity-90 sm:text-[0.53rem]" title={waiter}>
+              <span className="mt-0.5 line-clamp-1 max-w-full px-0.5 text-[0.62rem] font-semibold leading-none opacity-90 sm:text-[0.65rem]" title={waiter}>
                 {waiter}
               </span>
-              <span className={`mt-0.5 rounded px-1 py-0.5 text-[0.48rem] font-extrabold leading-none sm:text-[0.5rem] ${
+              <span className={`mt-0.5 rounded px-1 py-0.5 text-[0.6rem] font-extrabold leading-none sm:text-[0.62rem] ${
                 tableState === "free" ? "bg-emerald-200/70 text-emerald-900" :
                 tableState === "open" ? "bg-sky-200/70 text-sky-900" :
                 tableState === "pending" ? "bg-orange-200/70 text-orange-900" :
@@ -290,7 +290,7 @@ export function TableFloorMap({
                  `🍳 ${waiting}`}
               </span>
               {arrangeMode && (
-                <span className="mt-0.5 rounded bg-white/90 px-1 py-0.5 text-[0.5rem] font-extrabold uppercase text-slate-700 shadow">
+                <span className="mt-0.5 rounded bg-white/90 px-1 py-0.5 text-[0.62rem] font-extrabold uppercase text-slate-700 shadow">
                   {es.mesas.arrangeMode}
                 </span>
               )}
@@ -331,6 +331,36 @@ export function TableFloorMap({
           );
         })}
       </div>
+      {resetConfirm && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/45 p-4"
+          role="alertdialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xs rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <h3 className="text-sm font-black text-slate-900">Restaurar disposición</h3>
+            <p className="mt-1.5 text-sm text-slate-600">
+              ¿Restaurar el plano en cuadrícula por defecto? Se perderá la disposición guardada.
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                onClick={() => setResetConfirm(false)}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-extrabold text-white hover:bg-red-700"
+                onClick={executeReset}
+              >
+                Restaurar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Leyenda de colores */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-5 gap-y-1.5 border-t px-3 py-2" style={{ backgroundColor: "#f5f7fa", borderColor: "rgb(15 23 42 / 0.08)" }}>
         {([

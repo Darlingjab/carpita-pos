@@ -3,10 +3,28 @@ import { pullRuntimeFromCloud } from "@/lib/cloud-sync";
 import { verifyLogin } from "@/lib/user-accounts";
 import { signSession } from "@/lib/session";
 import { COOKIE_NAME } from "@/lib/auth";
+import { isRateLimited } from "@/lib/rate-limiter";
 
 const SESSION_MAX_AGE = 60 * 60 * 12; // 12 horas
 
+/** Máximo 10 intentos por IP cada 15 minutos */
+const RATE_LIMIT = 10;
+const RATE_WINDOW_MS = 15 * 60 * 1000;
+
 export async function POST(request: Request) {
+  // Rate limiting por IP
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    request.headers.get("x-real-ip") ??
+    "unknown";
+
+  if (isRateLimited(ip, RATE_LIMIT, RATE_WINDOW_MS)) {
+    return NextResponse.json(
+      { error: "too_many_requests", message: "Demasiados intentos. Intenta en 15 minutos." },
+      { status: 429 },
+    );
+  }
+
   await pullRuntimeFromCloud();
   const body = (await request.json()) as { email?: string; password?: string };
   const email = (body.email ?? "").trim().toLowerCase();

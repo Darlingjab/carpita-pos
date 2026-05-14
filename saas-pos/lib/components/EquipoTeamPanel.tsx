@@ -6,6 +6,8 @@ import { rolePermissions } from "@/lib/mock-data";
 import { formatRole } from "@/lib/locale";
 import type { AppUser, Permission, RoleName } from "@/lib/types";
 import { suggestStaffEmail } from "@/lib/staff-email";
+import { ToastBanner } from "@/lib/components/ToastBanner";
+import { ConfirmDialog } from "@/lib/components/ConfirmDialog";
 
 const PERM_LABELS: Record<Permission, string> = {
   "sales.create": "Ventas y cobro",
@@ -39,6 +41,10 @@ export function EquipoTeamPanel() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ userId: string; name: string } | null>(null);
+
+  function showToast(msg: string) { setToastMsg(msg); }
 
   const load = useCallback(() => {
     setIsLoading(true);
@@ -73,6 +79,21 @@ export function EquipoTeamPanel() {
 
   const canManage = meta?.canManageUsers ?? false;
   const domain = meta?.staffEmailDomain ?? "local";
+
+  async function executeDeleteUser(userId: string) {
+    const res = await fetch(`/api/users/${userId}`, { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast(
+        d.error === "cannot_delete_self"
+          ? "No puedes eliminarte a ti mismo."
+          : "No se pudo eliminar.",
+      );
+      return;
+    }
+    setEditId(null);
+    load();
+  }
 
   const editUser = useMemo(() => users.find((u) => u.id === editId) ?? null, [users, editId]);
 
@@ -168,7 +189,7 @@ export function EquipoTeamPanel() {
             });
             const d = await res.json().catch(() => ({}));
             if (!res.ok) {
-              window.alert(
+              showToast(
                 d.error === "password_short"
                   ? "La contraseña debe tener al menos 6 caracteres."
                   : d.error === "email_taken_or_invalid"
@@ -182,6 +203,22 @@ export function EquipoTeamPanel() {
           }}
         />
       )}
+
+      <ToastBanner message={toastMsg} onDismiss={() => setToastMsg(null)} />
+      <ConfirmDialog
+        open={deleteConfirm !== null}
+        title="Eliminar usuario"
+        message={`¿Eliminar a ${deleteConfirm?.name ?? "este usuario"}? No podrá iniciar sesión.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={async () => {
+          const id = deleteConfirm?.userId;
+          setDeleteConfirm(null);
+          if (id) await executeDeleteUser(id);
+        }}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
       {editUser && canManage && (
         <UserFormModal
@@ -206,7 +243,7 @@ export function EquipoTeamPanel() {
             });
             const d = await res.json().catch(() => ({}));
             if (!res.ok) {
-              window.alert(
+              showToast(
                 d.error === "not_found_or_invalid"
                   ? "No se pudo guardar (¿último administrador?)."
                   : "Error al actualizar.",
@@ -220,20 +257,8 @@ export function EquipoTeamPanel() {
             editUser.id !== me?.id &&
             (editUser.role !== "admin" ||
               users.filter((x) => x.role === "admin" && x.enabled !== false).length > 1)
-              ? async () => {
-                  if (!window.confirm("¿Eliminar este usuario? No podrá iniciar sesión.")) return;
-                  const res = await fetch(`/api/users/${editUser.id}`, { method: "DELETE" });
-                  const d = await res.json().catch(() => ({}));
-                  if (!res.ok) {
-                    window.alert(
-                      d.error === "cannot_delete_self"
-                        ? "No puedes eliminarte a ti mismo."
-                        : "No se pudo eliminar.",
-                    );
-                    return;
-                  }
-                  setEditId(null);
-                  load();
+              ? () => {
+                  setDeleteConfirm({ userId: editUser.id, name: editUser.fullName });
                 }
               : undefined
           }
@@ -277,6 +302,7 @@ function UserFormModal({
   onDelete?: () => void | Promise<void>;
 }) {
   const [portalReady, setPortalReady] = useState(false);
+  const [modalToast, setModalToast] = useState<string | null>(null);
   useEffect(() => {
     setPortalReady(true);
     const prev = document.body.style.overflow;
@@ -315,11 +341,11 @@ function UserFormModal({
   async function submit() {
     if (!initial) {
       if (!fullName.trim() || !email.trim()) {
-        window.alert("Completa nombre y correo.");
+        setModalToast("Completa nombre y correo.");
         return;
       }
       if (password.length < 6) {
-        window.alert("La contraseña debe tener al menos 6 caracteres.");
+        setModalToast("La contraseña debe tener al menos 6 caracteres.");
         return;
       }
     }

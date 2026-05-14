@@ -125,6 +125,20 @@ export function RestaurantOrderSidebar({
   const [favAdminOpen, setFavAdminOpen] = useState(false);
   /** Por defecto expandido; el cajero puede minimizar para ganar espacio. */
   const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [closeTableConfirm, setCloseTableConfirm] = useState(false);
+  const closeTableCallback = useRef<(() => void | Promise<void>) | null>(null);
+
+  function showToast(msg: string) {
+    setToastMsg(msg);
+  }
+
+  useEffect(() => {
+    if (!toastMsg) return;
+    const t = setTimeout(() => setToastMsg(null), 3500);
+    return () => clearTimeout(t);
+  }, [toastMsg]);
+
   const draftKey = useMemo(() => {
     if (mode === "counter") return `pos_order_draft:counter:${counterOrderId ?? "none"}`;
     return `pos_order_draft:table:${table?.id ?? "none"}`;
@@ -339,7 +353,7 @@ export function RestaurantOrderSidebar({
 
   async function sendKitchen() {
     if (registerOpen === false) {
-      window.alert(es.orderFlow.registerClosed);
+      showToast(es.orderFlow.registerClosed);
       return;
     }
     if (unsentLines.length === 0) return;
@@ -363,7 +377,7 @@ export function RestaurantOrderSidebar({
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      window.alert(
+      showToast(
         err?.error === "items_required"
           ? "La comanda no tiene productos válidos."
           : err?.error === "Forbidden"
@@ -391,7 +405,7 @@ export function RestaurantOrderSidebar({
   function reprintLast() {
     const p = lastPrintPayload.current;
     if (!p) {
-      window.alert("No hay comanda reciente.");
+      showToast("No hay comanda reciente.");
       return;
     }
     printKitchenTicket(p);
@@ -423,7 +437,7 @@ export function RestaurantOrderSidebar({
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert(
+      showToast(
         data?.error === "insufficient_points"
           ? "Este cliente no tiene puntos suficientes."
           : "No se pudo canjear la recompensa.",
@@ -495,15 +509,15 @@ export function RestaurantOrderSidebar({
     const result = await postSaleWithOfflineQueue(payload);
     if (result.kind === "error") {
       if (result.error === "register_closed") {
-        window.alert(result.message ?? es.orderFlow.registerClosed);
+        showToast(result.message ?? es.orderFlow.registerClosed);
         refreshRegister();
       } else {
-        window.alert(result.message ?? "No se pudo registrar la venta.");
+        showToast(result.message ?? "No se pudo registrar la venta.");
       }
       return;
     }
     if (result.kind === "queued") {
-      window.alert(es.offline.saleQueued);
+      showToast(es.offline.saleQueued);
     } else {
       window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     }
@@ -549,15 +563,14 @@ export function RestaurantOrderSidebar({
       // ignore localStorage failures
     }
     if (mode === "table" && table && onCloseTable && allCharged) {
-      if (window.confirm(es.orderFlow.askCloseTable)) {
-        await onCloseTable();
-      }
+      closeTableCallback.current = onCloseTable;
+      setCloseTableConfirm(true);
     }
   }
 
   function startCheckout() {
     if (registerOpen === false) {
-      window.alert(es.orderFlow.registerClosed);
+      showToast(es.orderFlow.registerClosed);
       return;
     }
     if (!allSent || cart.length === 0) return;
@@ -588,6 +601,48 @@ export function RestaurantOrderSidebar({
 
   return (
     <aside className="flex h-full min-h-0 max-h-full w-full min-w-0 flex-1 flex-col overflow-hidden bg-white">
+      {toastMsg && (
+        <div
+          className="fixed bottom-4 left-1/2 z-[300] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="flex items-start gap-3">
+            <span className="flex-1 leading-snug">{toastMsg}</span>
+            <button type="button" className="shrink-0 text-slate-400 hover:text-white" onClick={() => setToastMsg(null)} aria-label="Cerrar">✕</button>
+          </div>
+        </div>
+      )}
+      {closeTableConfirm && (
+        <div
+          className="fixed inset-0 z-[250] flex items-center justify-center bg-black/45 p-4"
+          role="alertdialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-xs rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <p className="text-sm text-slate-700">{es.orderFlow.askCloseTable}</p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                className="flex-1 rounded-lg border border-slate-300 bg-white py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50"
+                onClick={() => setCloseTableConfirm(false)}
+              >
+                No
+              </button>
+              <button
+                type="button"
+                className="btn-pos-primary flex-1 py-2.5 text-sm font-extrabold"
+                onClick={async () => {
+                  setCloseTableConfirm(false);
+                  if (closeTableCallback.current) await closeTableCallback.current();
+                }}
+              >
+                Sí, cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {discountModal && (
         <DiscountModal
           subtotal={subtotal}
@@ -642,7 +697,7 @@ export function RestaurantOrderSidebar({
 
       <header
         className="shrink-0 px-2 py-1.5 text-white max-lg:py-1 lg:py-1.5"
-        style={{ backgroundColor: "#c41e1e" }}
+        style={{ backgroundColor: "var(--pos-primary)" }}
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div
@@ -995,7 +1050,7 @@ export function RestaurantOrderSidebar({
                       <div className="flex items-center rounded border border-slate-200 bg-white shadow-sm">
                         <button
                           type="button"
-                          className="flex min-h-[1.75rem] min-w-[1.5rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
+                          className="flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
                           disabled={line.kitchenSent}
                           onClick={() => setQty(line.id, line.qty - 1)}
                         >
@@ -1006,7 +1061,7 @@ export function RestaurantOrderSidebar({
                         </span>
                         <button
                           type="button"
-                          className="flex min-h-[1.75rem] min-w-[1.5rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
+                          className="flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
                           disabled={line.kitchenSent}
                           onClick={() => setQty(line.id, line.qty + 1)}
                         >

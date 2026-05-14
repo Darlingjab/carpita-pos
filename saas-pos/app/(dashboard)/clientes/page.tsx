@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
+import { ToastBanner } from "@/lib/components/ToastBanner";
+import { ConfirmDialog } from "@/lib/components/ConfirmDialog";
 import type { Customer } from "@/lib/types";
 
 /** Segmentación rápida basada en puntos y fecha de registro */
@@ -43,6 +45,10 @@ export function ClientesClient() {
   const [reward150, setReward150] = useState("2×1 en bebidas");
   const [rewardFlash, setRewardFlash] = useState(false);
   const [myRole, setMyRole] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [redeemConfirm, setRedeemConfirm] = useState<{ customerId: string; tier: 50 | 100 | 150; label: string } | null>(null);
+
+  function showToast(msg: string) { setToastMsg(msg); }
 
   const isAdmin = myRole === "admin";
 
@@ -96,7 +102,7 @@ export function ClientesClient() {
       }),
     });
     if (!res.ok) {
-      window.alert("No se pudo crear el cliente.");
+      showToast("No se pudo crear el cliente.");
       return;
     }
     setName("");
@@ -123,7 +129,7 @@ export function ClientesClient() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert(
+      showToast(
         data?.error === "insufficient_points"
           ? "Este cliente aún no tiene puntos suficientes."
           : "No se pudo registrar el canje.",
@@ -303,9 +309,7 @@ export function ClientesClient() {
                         }`}
                         onClick={() => {
                           if (!ok) return;
-                          if (window.confirm(`Canjear ${r.tier} puntos por: "${r.label}"?\n\nEsto descontará ${r.tier} puntos del cliente.`)) {
-                            void redeem(c.id, r.tier);
-                          }
+                          setRedeemConfirm({ customerId: c.id, tier: r.tier, label: r.label });
                         }}
                       >
                         {ok ? "🎁" : "🔒"} {r.tier} pts → {r.label}
@@ -318,6 +322,16 @@ export function ClientesClient() {
           })}
         </div>
       </div>
+      <ToastBanner message={toastMsg} onDismiss={() => setToastMsg(null)} />
+      <ConfirmDialog
+        open={redeemConfirm !== null}
+        title="Canjear recompensa"
+        message={`¿Canjear ${redeemConfirm?.tier ?? 0} puntos por: "${redeemConfirm?.label ?? ""}"? Esto descontará ${redeemConfirm?.tier ?? 0} puntos del cliente.`}
+        confirmLabel="Canjear"
+        cancelLabel="Cancelar"
+        onConfirm={() => { const rc = redeemConfirm; setRedeemConfirm(null); if (rc) void redeem(rc.customerId, rc.tier); }}
+        onCancel={() => setRedeemConfirm(null)}
+      />
     </div>
   );
 }

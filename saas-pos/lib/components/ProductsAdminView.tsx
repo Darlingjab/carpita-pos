@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
+import { ConfirmDialog } from "@/lib/components/ConfirmDialog";
 import { Package, Star, Trash2 } from "lucide-react";
 import { demoCategories, demoProducts } from "@/lib/mock-data";
 import { es } from "@/lib/locale";
@@ -67,6 +68,8 @@ export function ProductsAdminView() {
 
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editMap, setEditMap] = useState<Record<string, { name: string; price: number; cost: number }>>({});
+  const [archiveConfirm, setArchiveConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [moveCatConfirm, setMoveCatConfirm] = useState<{ ids: string[]; toSeasonal: boolean; target: string } | null>(null);
 
   React.useEffect(() => {
     setIsEditingCategory(false);
@@ -114,7 +117,10 @@ export function ProductsAdminView() {
   };
 
   const handleArchive = (id: string, name: string) => {
-    if (!window.confirm(`${es.productsAdmin.archiveConfirm}\n\n${name}`)) return;
+    setArchiveConfirm({ id, name });
+  };
+
+  const executeArchive = (id: string) => {
     applyOverrides((base) => ({
       ...base,
       [id]: { ...(base[id] || {}), isArchived: true, isActive: false },
@@ -124,16 +130,13 @@ export function ProductsAdminView() {
   const handleMoveCategory = () => {
     const toSeasonal = mainTab === "productos";
     const target = toSeasonal ? "temporada" : "regulares";
-    if (
-      !window.confirm(
-        es.productsAdmin.moveCategoryConfirm.replace("{cat}", activeCat).replace("{target}", target),
-      )
-    ) {
-      return;
-    }
     const ids = products
       .filter((p) => categoryNameOf(p.categoryId, demoCategories) === activeCat)
       .map((p) => p.id);
+    setMoveCatConfirm({ ids, toSeasonal, target });
+  };
+
+  const executeMoveCat = (ids: string[], toSeasonal: boolean) => {
     applyOverrides((base) => {
       const next = { ...base };
       ids.forEach((id) => {
@@ -448,6 +451,27 @@ export function ProductsAdminView() {
           )}
         </div>
       </div>
+      <ConfirmDialog
+        open={archiveConfirm !== null}
+        title={es.productsAdmin.archiveConfirm}
+        message={archiveConfirm?.name ?? ""}
+        confirmLabel="Archivar"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={() => { const c = archiveConfirm; setArchiveConfirm(null); if (c) executeArchive(c.id); }}
+        onCancel={() => setArchiveConfirm(null)}
+      />
+      <ConfirmDialog
+        open={moveCatConfirm !== null}
+        title="Mover categoría"
+        message={es.productsAdmin.moveCategoryConfirm
+          .replace("{cat}", activeCat)
+          .replace("{target}", moveCatConfirm?.target ?? "")}
+        confirmLabel="Mover"
+        cancelLabel="Cancelar"
+        onConfirm={() => { const c = moveCatConfirm; setMoveCatConfirm(null); if (c) executeMoveCat(c.ids, c.toSeasonal); }}
+        onCancel={() => setMoveCatConfirm(null)}
+      />
     </div>
   );
 }

@@ -79,6 +79,38 @@ export function KitchenDisplayClient() {
   const [checkedByGroup, setCheckedByGroup] = useState<Record<string, Record<string, number>>>({});
   const [kdsBusy, setKdsBusy] = useState(false);
   const autoReadyLocks = useRef(new Set<string>());
+  const prevTicketCountRef = useRef<number | null>(null);
+
+  /** Genera un beep de cocina usando Web Audio API */
+  function playKitchenBeep() {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "square";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+      // Segundo beep
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.type = "square";
+      osc2.frequency.setValueAtTime(1100, ctx.currentTime + 0.5);
+      gain2.gain.setValueAtTime(0.3, ctx.currentTime + 0.5);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
+      osc2.start(ctx.currentTime + 0.5);
+      osc2.stop(ctx.currentTime + 0.9);
+      setTimeout(() => ctx.close(), 2000);
+    } catch {
+      // Web Audio API no disponible (SSR, etc.)
+    }
+  }
 
   const load = useCallback(() => {
     fetch("/api/kitchen/tickets")
@@ -98,7 +130,16 @@ export function KitchenDisplayClient() {
       })
       .then((d) => {
         if (!d) return;
-        setTickets(Array.isArray(d.data) ? d.data : []);
+        const incoming: KitchenTicket[] = Array.isArray(d.data) ? d.data : [];
+        setTickets(incoming);
+        // Detectar tickets nuevos y reproducir alarma
+        const newCount = incoming.filter(
+          (t) => t.status === "pending" || t.status === "preparing"
+        ).length;
+        if (prevTicketCountRef.current !== null && newCount > prevTicketCountRef.current) {
+          playKitchenBeep();
+        }
+        prevTicketCountRef.current = newCount;
       })
       .catch(() => {
         setLoadError("network");

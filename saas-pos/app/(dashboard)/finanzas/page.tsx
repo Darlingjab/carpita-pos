@@ -55,7 +55,7 @@ function salePaymentsLabel(s: Sale): string {
 
 export default function FinanzasInformesPage() {
   const historic = importedSalesStats;
-  const [source, setSource] = useState<"imported" | "session">("imported");
+  const [source, setSource] = useState<"imported" | "session">("session");
   const [sales, setSales] = useState<Sale[]>([]);
   const [kitchenTickets, setKitchenTickets] = useState<KitchenTicket[]>([]);
   const [movements, setMovements] = useState<RegisterMovement[]>([]);

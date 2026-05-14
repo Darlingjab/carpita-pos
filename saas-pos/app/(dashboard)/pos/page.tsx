@@ -12,6 +12,7 @@ import {
   canAssumeRegisterOpenOffline,
 } from "@/lib/register-open-snapshot";
 import { PaymentMethod, SaleChannel } from "@/lib/types";
+import { ToastBanner } from "@/lib/components/ToastBanner";
 
 type CartLine = { productId: string; name: string; qty: number; unitPrice: number };
 
@@ -26,6 +27,9 @@ function PosContent() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  function showToast(msg: string) { setToastMsg(msg); }
 
   useEffect(() => {
     const mesa = searchParams.get("mesa");
@@ -93,20 +97,20 @@ function PosContent() {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         regOpen = canAssumeRegisterOpenOffline();
         if (!regOpen) {
-          window.alert(es.offline.needRegisterOnline);
+          showToast(es.offline.needRegisterOnline);
           return;
         }
       } else if (canAssumeRegisterOpenOffline()) {
         regOpen = true;
       } else {
-        window.alert(
+        showToast(
           "No se pudo comprobar la caja. Revisa la conexión o abre Ventas → Arqueos.",
         );
         return;
       }
     }
     if (!regOpen) {
-      window.alert(
+      showToast(
         "La caja está cerrada. Ve a Ventas → Arqueos para abrir caja con dinero base.",
       );
       return;
@@ -130,14 +134,14 @@ function PosContent() {
     const result = await postSaleWithOfflineQueue(payload);
     if (result.kind === "error") {
       if (result.error === "register_closed") {
-        window.alert(result.message ?? "La caja está cerrada.");
+        showToast(result.message ?? "La caja está cerrada.");
       } else {
-        window.alert(result.message ?? "No se pudo registrar la venta.");
+        showToast(result.message ?? "No se pudo registrar la venta.");
       }
       return;
     }
     if (result.kind === "queued") {
-      window.alert(es.offline.saleQueued);
+      showToast(es.offline.saleQueued);
     } else {
       window.dispatchEvent(new CustomEvent("pos-sales-updated"));
     }
@@ -146,6 +150,8 @@ function PosContent() {
   }
 
   return (
+    <>
+    <ToastBanner message={toastMsg} onDismiss={() => setToastMsg(null)} />
     <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
       <div className="card p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -333,6 +339,7 @@ function PosContent() {
         </button>
       </aside>
     </section>
+    </>
   );
 }
 

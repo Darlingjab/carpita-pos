@@ -68,24 +68,38 @@ export function DashboardNav({ role, enabled = true }: { role: RoleName; enabled
           const allowed = canAccessPath(role, href, { enabled });
           const active = linkActive(pathname, href);
           const disabled = !allowed;
+          if (disabled) {
+            return (
+              <span
+                key={href}
+                aria-disabled="true"
+                title="No disponible para tu perfil"
+                className="relative flex min-w-max shrink-0 snap-start items-center gap-1 px-3 py-0 cursor-not-allowed text-slate-300 sm:gap-1.5 sm:px-3.5"
+              >
+                <Icon
+                  className="hidden shrink-0 text-slate-300 sm:block sm:h-[14px] sm:w-[14px]"
+                  strokeWidth={2}
+                  aria-hidden
+                />
+                <span className="whitespace-nowrap text-[0.62rem] font-extrabold uppercase leading-tight tracking-wide sm:text-[0.68rem]">
+                  {label}
+                </span>
+              </span>
+            );
+          }
           return (
             <Link
               key={href}
-              href={disabled ? "#" : href}
-              onClick={(e) => { if (disabled) e.preventDefault(); }}
-              title={disabled ? "No disponible para tu perfil" : undefined}
-              aria-disabled={disabled}
+              href={href}
               className={`relative flex min-w-max shrink-0 snap-start items-center gap-1 px-3 py-0 transition-[background-color,color] duration-150 ease-out sm:gap-1.5 sm:px-3.5 ${
                 active
                   ? "text-[var(--pos-primary)] bg-[var(--pos-primary-light)] shadow-[inset_0_-2.5px_0_var(--pos-primary)]"
-                  : disabled
-                    ? "cursor-not-allowed text-slate-300"
-                    : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
               }`}
             >
               <Icon
                 className={`hidden shrink-0 sm:block sm:h-[14px] sm:w-[14px] ${
-                  active ? "text-[var(--pos-primary)]" : disabled ? "text-slate-300" : "text-slate-400"
+                  active ? "text-[var(--pos-primary)]" : "text-slate-400"
                 }`}
                 strokeWidth={active ? 2.5 : 2}
                 aria-hidden

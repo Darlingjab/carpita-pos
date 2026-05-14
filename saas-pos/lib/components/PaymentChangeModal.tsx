@@ -36,6 +36,14 @@ export function PaymentChangeModal({ total, defaultMethod = "cash", onConfirm, o
   const [receivedStr, setReceivedStr] = useState("");
 
   useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
     if (defaultMethod === "cash") {
       setCashStr(total > 0 ? total.toFixed(2) : "");
       setCardStr("");
@@ -104,9 +112,9 @@ export function PaymentChangeModal({ total, defaultMethod = "cash", onConfirm, o
   }
 
   return (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 p-3">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 p-3" role="dialog" aria-modal="true" aria-labelledby="payment-modal-title">
       <div className="flex max-h-[90dvh] w-full max-w-md flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:p-6">
-        <h2 className="text-center text-lg font-black tracking-tight text-slate-900 sm:text-xl">
+        <h2 id="payment-modal-title" className="text-center text-lg font-black tracking-tight text-slate-900 sm:text-xl">
           {es.paymentModal.title}
         </h2>
 

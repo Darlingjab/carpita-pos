@@ -19,6 +19,7 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
   const [pwdBusy, setPwdBusy] = useState(false);
+  const [pwdError, setPwdError] = useState<string>("");
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,18 +37,20 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
     setCurrentPwd("");
     setNewPwd("");
     setConfirmPwd("");
+    setPwdError("");
     setPwdOpen(true);
   }
 
   async function submitPasswordChange() {
     if (newPwd.length < 6) {
-      window.alert("La nueva contraseña debe tener al menos 6 caracteres.");
+      setPwdError("La nueva contraseña debe tener al menos 6 caracteres.");
       return;
     }
     if (newPwd !== confirmPwd) {
-      window.alert(es.nav.passwordMismatch);
+      setPwdError(es.nav.passwordMismatch);
       return;
     }
+    setPwdError("");
     setPwdBusy(true);
     try {
       const res = await fetch("/api/users/me/password", {
@@ -57,11 +60,7 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (d.error === "invalid_current") {
-          window.alert("La contraseña actual no es correcta.");
-        } else {
-          window.alert(es.nav.passwordChangeError);
-        }
+        setPwdError(d.error === "invalid_current" ? "La contraseña actual no es correcta." : es.nav.passwordChangeError);
         return;
       }
       setPwdOpen(false);
@@ -196,6 +195,11 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
                 />
               </div>
             </div>
+            {pwdError && (
+              <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+                {pwdError}
+              </p>
+            )}
             <div className="mt-4 flex flex-wrap justify-end gap-2">
               <button
                 type="button"

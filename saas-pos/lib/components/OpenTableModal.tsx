@@ -56,10 +56,11 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
         <p className="mt-1 text-xs text-slate-500">{es.restaurant.openTableHint}</p>
         <div className="mt-4 flex items-end gap-3">
           <div className="flex-1">
-            <label className="block text-xs font-bold uppercase text-slate-500">
+            <label htmlFor="open-table-customer" className="block text-xs font-bold uppercase text-slate-500">
               Cliente guardado (opcional)
             </label>
             <select
+              id="open-table-customer"
               className="input-base mt-1 w-full rounded-lg border px-3 py-2 text-base"
               style={{ borderColor: "var(--pos-border)" }}
               value={selectedCustomerId}
@@ -73,10 +74,11 @@ export function OpenTableModal({ table, onConfirm, onCancel }: Props) {
             </select>
           </div>
           <div className="w-24 shrink-0">
-            <label className="block text-xs font-bold uppercase text-slate-500">
+            <label htmlFor="open-table-guests" className="block text-xs font-bold uppercase text-slate-500">
               Comensales
             </label>
             <input
+              id="open-table-guests"
               type="number"
               min={1}
               max={20}

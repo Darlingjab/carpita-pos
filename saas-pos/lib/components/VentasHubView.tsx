@@ -23,6 +23,8 @@ import { importedSalesStats } from "@/lib/data/imported-sales-stats";
 import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
 import { salesToImportedRegisterMovements } from "@/lib/import-sales-movements";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
+import { ToastBanner } from "@/lib/components/ToastBanner";
+import { ConfirmDialog } from "@/lib/components/ConfirmDialog";
 
 /** Evita renderizar decenas de miles de filas en el DOM; el CSV lleva el total filtrado. */
 const IMPORT_MOV_UI_CAP = 500;
@@ -113,6 +115,11 @@ export function VentasHubView() {
   const [arqueosHistorySource, setArqueosHistorySource] = useState<ArqueosHistorySource>("import");
   const [movSearch, setMovSearch] = useState("");
   const [arqueosQuickFilter, setArqueosQuickFilter] = useState<"today" | "7d" | "30d" | "month" | "all">("7d");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [voidSaleConfirm, setVoidSaleConfirm] = useState<string | null>(null);
+  const [closeRegisterConfirm, setCloseRegisterConfirm] = useState<string | null>(null);
+
+  function showToast(msg: string) { setToastMsg(msg); }
 
   useEffect(() => {
     if (tabParam === "arqueos") {
@@ -333,9 +340,12 @@ export function VentasHubView() {
     return { tickets, revenue, cash, card, transfer };
   }, [arqueosImportRows]);
 
-  async function submitVoidMovement(targetId: string) {
+  function submitVoidMovement(targetId: string) {
     if (!canAdminRegister) return;
-    if (!window.confirm(es.arqueosHub.voidConfirm)) return;
+    setVoidSaleConfirm(targetId);
+  }
+
+  async function executeVoidSale(targetId: string) {
     setArqueosBusy(true);
     try {
       const res = await fetch("/api/register/movements/void", {
@@ -345,7 +355,7 @@ export function VentasHubView() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        window.alert(
+        showToast(
           data?.message ??
             data?.error ??
             (data?.error === "cloud_sync_failed"
@@ -365,11 +375,11 @@ export function VentasHubView() {
     const amount = Number(adjustAmount);
     const note = adjustNote.trim();
     if (!Number.isFinite(amount) || amount === 0) {
-      window.alert("Indique un monto distinto de cero.");
+      showToast("Indique un monto distinto de cero.");
       return;
     }
     if (note.length < 3) {
-      window.alert("Indique el motivo del ajuste (mín. 3 caracteres).");
+      showToast("Indique el motivo del ajuste (mín. 3 caracteres).");
       return;
     }
     setArqueosBusy(true);
@@ -381,7 +391,7 @@ export function VentasHubView() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        window.alert(
+        showToast(
           data?.message ??
             (data?.error === "cloud_sync_failed"
               ? `No se guardó en Supabase: ${String(data?.detail ?? "")}`
@@ -399,7 +409,7 @@ export function VentasHubView() {
 
   function submitOpenRegister() {
     if (registerOpen) {
-      window.alert("La caja ya está abierta. Ciérrala antes de abrir un nuevo arqueo.");
+      showToast("La caja ya está abierta. Ciérrala antes de abrir un nuevo arqueo.");
       return;
     }
     const amount = openFormHasBase ? Math.max(0, Number(openFormAmount) || 0) : 0;
@@ -414,7 +424,7 @@ export function VentasHubView() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert(
+      showToast(
         data?.error === "cloud_sync_failed"
           ? `No se guardó en Supabase: ${String(data?.detail ?? "")}. Revisa la tabla pos_runtime_state y las variables de entorno.`
           : "No se pudo abrir la caja.",
@@ -450,8 +460,11 @@ export function VentasHubView() {
         `Efectivo contado: $${counted.toFixed(2)}\n\n` +
         `¿Cerrar caja de todas formas?`;
     }
-    if (!window.confirm(msg)) return;
+    setCloseRegisterConfirm(msg);
+  }
 
+  async function executeCloseRegister() {
+    const counted = Math.max(0, Number(closeFormAmount) || 0);
     const res = await fetch("/api/register/close", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -459,7 +472,7 @@ export function VentasHubView() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      window.alert(
+      showToast(
         data?.error === "cloud_sync_failed"
           ? `No se guardó en Supabase: ${String(data?.detail ?? "")}. Revisa la tabla pos_runtime_state y las variables de entorno.`
           : "No se pudo cerrar la caja.",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/lib/components/ConfirmDialog";
 
 const STORAGE_KEY = "pos_inventario_v1";
 
@@ -115,8 +116,14 @@ export function InventarioView() {
     setAjusteNota("");
   };
 
+  const [deleteInsumoId, setDeleteInsumoId] = useState<string | null>(null);
+
   const handleDelete = (id: string) => {
-    if (!window.confirm("¿Eliminar este insumo del inventario?")) return;
+    setDeleteInsumoId(id);
+  };
+
+  const executeDeleteInsumo = (id: string) => {
+    setDeleteInsumoId(null);
     persist(insumos.filter((i) => i.id !== id));
   };
 
@@ -349,6 +356,16 @@ export function InventarioView() {
           </table>
         </div>
       )}
+      <ConfirmDialog
+        open={deleteInsumoId !== null}
+        title="Eliminar insumo"
+        message="¿Eliminar este insumo del inventario? Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={() => { if (deleteInsumoId) executeDeleteInsumo(deleteInsumoId); }}
+        onCancel={() => setDeleteInsumoId(null)}
+      />
     </div>
   );
 }

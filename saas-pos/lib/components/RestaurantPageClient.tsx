@@ -14,6 +14,7 @@ import {
   type TableAssignment,
 } from "@/lib/table-assignments";
 import { LayoutGrid, Store } from "lucide-react";
+import { ToastBanner } from "@/lib/components/ToastBanner";
 
 type SubTab = "mesas" | "mostrador";
 
@@ -61,6 +62,9 @@ export function RestaurantPageClient({
   const [kitchenTickets, setKitchenTickets] = useState<KitchenTicket[]>([]);
   /** En móvil: alternar plano de mesas o panel de pedido a pantalla completa. */
   const [mobileMesasPane, setMobileMesasPane] = useState<"floor" | "order">("floor");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  function showToast(msg: string) { setToastMsg(msg); }
   const prevSessionTableRef = useRef<string | null>(null);
 
   // ---------------------------------------------------------------------------
@@ -343,6 +347,8 @@ export function RestaurantPageClient({
   }, [kitchenTickets, assignments]);
 
   return (
+    <>
+    <ToastBanner message={toastMsg} onDismiss={() => setToastMsg(null)} />
     <div className="flex max-h-[calc(100dvh-7rem)] min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm lg:min-h-0 lg:max-h-[calc(100dvh-4.25rem)]">
       {modalTable && (
         <OpenTableModal
@@ -493,8 +499,8 @@ export function RestaurantPageClient({
                 onClick={() => {
                   if (registerOpen === null) return;
                   if (registerOpen === false) {
-                    window.alert(
-                      `${es.orderFlow.mustOpenRegisterBeforeOperations}\n\n${es.orderFlow.openRegisterLink}`,
+                    showToast(
+                      `${es.orderFlow.mustOpenRegisterBeforeOperations} ${es.orderFlow.openRegisterLink}`,
                     );
                     return;
                   }
@@ -610,5 +616,6 @@ export function RestaurantPageClient({
         </div>
       </div>
     </div>
+    </>
   );
 }
