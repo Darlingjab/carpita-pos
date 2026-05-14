@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { es } from "@/lib/locale";
 import { importedSalesStats } from "@/lib/data/imported-sales-stats";
 import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
-import type { KitchenTicket, Sale } from "@/lib/types";
+import type { KitchenTicket, RegisterMovement, Sale } from "@/lib/types";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
 
 function currency(n: number) {
@@ -58,6 +58,7 @@ export default function FinanzasInformesPage() {
   const [source, setSource] = useState<"imported" | "session">("imported");
   const [sales, setSales] = useState<Sale[]>([]);
   const [kitchenTickets, setKitchenTickets] = useState<KitchenTicket[]>([]);
+  const [movements, setMovements] = useState<RegisterMovement[]>([]);
 
   const today = useMemo(() => new Date(), []);
   const [from, setFrom] = useState(() => toDateInputValue(today));
@@ -67,7 +68,7 @@ export default function FinanzasInformesPage() {
   >("day");
   const [serverFilter, setServerFilter] = useState<string>("all");
 
-  useEffect(() => {
+  const loadData = () => {
     fetch("/api/sales")
       .then((r) => r.json())
       .then((d) => setSales(Array.isArray(d.data) ? d.data : []))
@@ -76,6 +77,22 @@ export default function FinanzasInformesPage() {
       .then((r) => r.json())
       .then((d) => setKitchenTickets(d.data ?? []))
       .catch(() => setKitchenTickets([]));
+    fetch("/api/register/movements")
+      .then((r) => r.ok ? r.json() : { data: [] })
+      .then((d) => setMovements(Array.isArray(d.data) ? d.data : []))
+      .catch(() => setMovements([]));
+  };
+
+  useEffect(() => {
+    loadData();
+    // Refrescar cuando se registre un gasto o venta
+    window.addEventListener("pos-register-updated", loadData);
+    window.addEventListener("pos-sales-updated", loadData);
+    return () => {
+      window.removeEventListener("pos-register-updated", loadData);
+      window.removeEventListener("pos-sales-updated", loadData);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const importedSaleIds = useMemo(() => new Set(importedSalesSeed.map((s) => s.id)), []);
@@ -127,6 +144,31 @@ export default function FinanzasInformesPage() {
   const discounts = useMemo(() => filtered.reduce((a, s) => a + (s.discount ?? 0), 0), [filtered]);
   const count = filtered.length;
   const avgTicket = count > 0 ? revenue / count : 0;
+
+  // Gastos del período (movements tipo "out" en el rango de fechas seleccionado)
+  const filteredGastos = useMemo(() => {
+    const fromMs = startOfDayMs(from);
+    const toMs = endOfDayMs(to);
+    return movements.filter((m) => {
+      if (m.type !== "out") return false;
+      const ms = new Date(m.createdAt).getTime();
+      return Number.isFinite(ms) && ms >= fromMs && ms <= toMs;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [movements, from, to]);
+
+  const totalGastos = useMemo(() => filteredGastos.reduce((a, m) => a + m.amount, 0), [filteredGastos]);
+  const balanceNeto = revenue - totalGastos;
+
+  // Gastos agrupados por categoría (extrae "[Categoria] concepto")
+  const gastosByCategoria = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const m of filteredGastos) {
+      const match = (m.note ?? "").match(/^\[([^\]]+)\]/);
+      const cat = match?.[1] ?? "Otro";
+      map.set(cat, (map.get(cat) ?? 0) + m.amount);
+    }
+    return [...map.entries()].sort((a, b) => b[1] - a[1]);
+  }, [filteredGastos]);
 
   const byPayment = useMemo(() => {
     const sumMethod = (method: "cash" | "card" | "transfer") =>
@@ -434,6 +476,79 @@ export default function FinanzasInformesPage() {
                 : "Diferencia vs ingresos: revisa ventas sin desglose o datos antiguos"}
             </p>
           </div>
+        </div>
+
+        {/* ── Gastos del período + Balance neto ─────────────────────────── */}
+        <div className="mt-6 rounded-xl border border-rose-200 bg-rose-50/40 p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-extrabold uppercase text-rose-900">Gastos del período</h3>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Salidas de caja registradas en Gastos dentro del rango de fechas.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <div className="rounded-lg border border-rose-200 bg-white px-4 py-2 text-right">
+                <p className="text-[0.65rem] font-bold uppercase text-rose-700">Total gastos</p>
+                <p className="text-xl font-black text-rose-700">{currency(totalGastos)}</p>
+              </div>
+              <div className={`rounded-lg border px-4 py-2 text-right ${balanceNeto >= 0 ? "border-emerald-200 bg-emerald-50" : "border-rose-300 bg-rose-100"}`}>
+                <p className="text-[0.65rem] font-bold uppercase text-slate-600">Balance neto</p>
+                <p className={`text-xl font-black ${balanceNeto >= 0 ? "text-emerald-700" : "text-rose-800"}`}>
+                  {currency(balanceNeto)}
+                </p>
+                <p className="text-[0.6rem] text-slate-500">ingresos − gastos</p>
+              </div>
+            </div>
+          </div>
+
+          {gastosByCategoria.length > 0 ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {gastosByCategoria.map(([cat, total]) => (
+                <span key={cat} className="rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-bold text-rose-800">
+                  {cat}: {currency(total)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-slate-500">
+              Sin gastos registrados en este período. Añadí gastos desde la pestaña <strong>Gastos</strong>.
+            </p>
+          )}
+
+          {filteredGastos.length > 0 && (
+            <div className="mt-4 overflow-hidden rounded-lg border border-rose-100">
+              <table className="w-full border-collapse text-sm">
+                <thead className="bg-rose-100/60 text-xs font-bold uppercase text-rose-800">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Categoría</th>
+                    <th className="px-3 py-2 text-left">Concepto</th>
+                    <th className="px-3 py-2 text-right">Monto</th>
+                    <th className="px-3 py-2 text-left">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredGastos.map((m) => {
+                    const match = (m.note ?? "").match(/^\[([^\]]+)\] (.+)$/);
+                    const cat = match?.[1] ?? "—";
+                    const concepto = match?.[2] ?? (m.note ?? "—");
+                    return (
+                      <tr key={m.id} className="border-t border-rose-100 hover:bg-rose-50/40">
+                        <td className="px-3 py-2">
+                          <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-800">{cat}</span>
+                        </td>
+                        <td className="max-w-[200px] truncate px-3 py-2 text-slate-700">{concepto}</td>
+                        <td className="px-3 py-2 text-right font-bold text-rose-700">{currency(m.amount)}</td>
+                        <td className="whitespace-nowrap px-3 py-2 text-xs text-slate-500">
+                          {new Date(m.createdAt).toLocaleString("es-EC", { day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit" })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">

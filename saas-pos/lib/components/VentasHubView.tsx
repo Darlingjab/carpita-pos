@@ -429,10 +429,27 @@ export function VentasHubView() {
   async function submitCloseRegister() {
     if (!registerOpen) return;
     const counted = Math.max(0, Number(closeFormAmount) || 0);
-    const msg = es.registerConfirm.closeWithCounted.replace(
-      "{counted}",
-      `$${counted.toFixed(2)}`,
-    );
+
+    // Verificar mesas abiertas antes de cerrar
+    let openTablesCount = 0;
+    try {
+      const r = await fetch("/api/tables/assignments");
+      if (r.ok) {
+        const d = (await r.json()) as { data?: Record<string, unknown> };
+        openTablesCount = Object.keys(d.data ?? {}).length;
+      }
+    } catch {
+      // si falla el check, continuamos sin bloquear
+    }
+
+    let msg = es.registerConfirm.closeWithCounted.replace("{counted}", `$${counted.toFixed(2)}`);
+    if (openTablesCount > 0) {
+      msg =
+        `⚠️ Hay ${openTablesCount} mesa${openTablesCount > 1 ? "s" : ""} aún ocupada${openTablesCount > 1 ? "s" : ""}.\n\n` +
+        `Si es cambio de turno, podés cerrar la caja igualmente — las mesas seguirán activas para el siguiente turno y el cajero que las cobre podrá abrir una nueva caja.\n\n` +
+        `Efectivo contado: $${counted.toFixed(2)}\n\n` +
+        `¿Cerrar caja de todas formas?`;
+    }
     if (!window.confirm(msg)) return;
 
     const res = await fetch("/api/register/close", {

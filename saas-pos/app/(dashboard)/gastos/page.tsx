@@ -120,6 +120,8 @@ export default function GastosPage() {
       setCategoria("Insumos");
       setFlash("¡Gasto registrado correctamente!");
       setTimeout(() => setFlash(null), 3000);
+      // Notificar a todas las pestañas que el registro cambió (arqueos, movimientos, finanzas)
+      window.dispatchEvent(new CustomEvent("pos-register-updated"));
       await fetchMovements();
     } catch {
       setError("Error de conexión.");
