@@ -225,7 +225,7 @@ export default function GastosPage() {
             type="button"
             className="btn-primary shrink-0 rounded-lg px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
             onClick={handleAdd}
-            disabled={loading || registerOpen === null}
+            disabled={loading || registerOpen !== true}
           >
             {loading ? "Guardando…" : "Registrar"}
           </button>

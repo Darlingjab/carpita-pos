@@ -538,7 +538,7 @@ export function VentasHubView() {
           <button
             type="button"
             onClick={() => setSubTab("arqueos")}
-            className="ml-auto rounded bg-amber-500 px-2 py-1 text-xs font-bold text-white"
+            className="ml-auto rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-amber-600"
           >
             Ir a Arqueos →
           </button>
@@ -1047,7 +1047,7 @@ export function VentasHubView() {
                       type="button"
                       disabled={arqueosBusy}
                       onClick={() => void submitManualAdjust()}
-                      className="btn-pos-primary mt-3 w-full py-2 text-sm font-extrabold uppercase text-white disabled:opacity-50"
+                      className="btn-pos-primary mt-3 w-full py-2.5 text-sm font-extrabold uppercase text-white disabled:opacity-50"
                     >
                       {es.arqueosHub.adjustSubmit}
                     </button>

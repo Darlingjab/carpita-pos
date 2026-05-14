@@ -158,8 +158,9 @@ export function ClientesClient() {
           <div className="sm:col-span-6">
             <button
               type="button"
-              className="btn-primary w-full rounded-lg py-2.5 text-sm font-extrabold uppercase text-white"
+              className="btn-primary w-full rounded-lg py-2.5 text-sm font-extrabold uppercase text-white disabled:opacity-50"
               onClick={() => void add()}
+              disabled={!name.trim()}
             >
               Añadir cliente
             </button>
@@ -210,7 +211,7 @@ export function ClientesClient() {
               <div className="flex items-center gap-3 sm:col-span-3">
                 <button
                   type="button"
-                  className="btn-pos-primary rounded-lg px-5 py-2 text-xs font-extrabold uppercase"
+                  className="btn-pos-primary rounded-lg px-5 py-2.5 text-sm font-extrabold uppercase"
                   onClick={saveRewards}
                 >
                   Guardar recompensas
@@ -231,7 +232,7 @@ export function ClientesClient() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
-          <button type="button" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold" onClick={load}>
+          <button type="button" className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold transition-colors hover:bg-slate-50" onClick={load}>
             Recargar
           </button>
           <ExportCsvPeriodLinks hrefBase="/api/customers/export" label="Exportar CSV" />

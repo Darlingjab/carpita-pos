@@ -77,6 +77,7 @@ export function KitchenDisplayClient() {
   const [now, setNow] = useState(() => Date.now());
   const [expandedPast, setExpandedPast] = useState<Record<string, boolean>>({});
   const [checkedByGroup, setCheckedByGroup] = useState<Record<string, Record<string, number>>>({});
+  const [kdsBusy, setKdsBusy] = useState(false);
   const autoReadyLocks = useRef(new Set<string>());
 
   const load = useCallback(() => {
@@ -118,25 +119,35 @@ export function KitchenDisplayClient() {
   }, [load]);
 
   const markGroupReady = useCallback(async (ids: string[]) => {
-    for (const id of ids) {
-      await fetch(`/api/kitchen/tickets/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "ready" }),
-      });
+    setKdsBusy(true);
+    try {
+      for (const id of ids) {
+        await fetch(`/api/kitchen/tickets/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "ready" }),
+        });
+      }
+      load();
+    } finally {
+      setKdsBusy(false);
     }
-    load();
   }, [load]);
 
   async function returnGroupToPreparing(ids: string[]) {
-    for (const id of ids) {
-      await fetch(`/api/kitchen/tickets/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "preparing" }),
-      });
+    setKdsBusy(true);
+    try {
+      for (const id of ids) {
+        await fetch(`/api/kitchen/tickets/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "preparing" }),
+        });
+      }
+      load();
+    } finally {
+      setKdsBusy(false);
     }
-    load();
   }
 
   function markItemReady(groupId: string, itemKey: string, qty: number) {
@@ -320,10 +331,11 @@ export function KitchenDisplayClient() {
                 </ul>
                 <button
                   type="button"
-                  className="mt-3 w-full rounded-xl bg-emerald-600 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow hover:bg-emerald-700"
+                  disabled={kdsBusy}
+                  className="mt-3 w-full rounded-xl bg-emerald-600 py-3 text-sm font-extrabold uppercase tracking-wide text-white shadow transition-colors hover:bg-emerald-700 disabled:opacity-50"
                   onClick={() => void markGroupReady(ids)}
                 >
-                  {es.kds.listo}
+                  {kdsBusy ? "…" : es.kds.listo}
                 </button>
               </article>
             );
@@ -380,7 +392,8 @@ export function KitchenDisplayClient() {
                 </div>
                 <button
                   type="button"
-                  className="mt-2 w-full rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-amber-800 hover:bg-amber-100"
+                  disabled={kdsBusy}
+                  className="mt-2 w-full rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-[0.65rem] font-extrabold uppercase tracking-wide text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
                   onClick={() => void returnGroupToPreparing(ids)}
                 >
                   Regresar a preparación

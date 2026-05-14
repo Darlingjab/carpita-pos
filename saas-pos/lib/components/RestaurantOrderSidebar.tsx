@@ -992,21 +992,21 @@ export function RestaurantOrderSidebar({
                           : "border-slate-100 bg-slate-50/90"
                       }`}
                     >
-                      <div className="flex items-center rounded bg-white shadow-sm">
+                      <div className="flex items-center rounded border border-slate-200 bg-white shadow-sm">
                         <button
                           type="button"
-                          className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
+                          className="flex min-h-[1.75rem] min-w-[1.5rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
                           disabled={line.kitchenSent}
                           onClick={() => setQty(line.id, line.qty - 1)}
                         >
                           −
                         </button>
-                        <span className="min-w-[1rem] text-center text-[0.6rem] font-bold tabular-nums">
+                        <span className="min-w-[1.25rem] border-x border-slate-200 text-center text-[0.6rem] font-bold tabular-nums leading-none py-1">
                           {line.qty}
                         </span>
                         <button
                           type="button"
-                          className="px-1 py-0 text-[0.65rem] font-bold text-slate-600 disabled:opacity-30"
+                          className="flex min-h-[1.75rem] min-w-[1.5rem] items-center justify-center text-[0.7rem] font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-30"
                           disabled={line.kitchenSent}
                           onClick={() => setQty(line.id, line.qty + 1)}
                         >

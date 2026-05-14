@@ -43,10 +43,7 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
         subtotal > 0 ? Math.round((discountAmount / subtotal) * 10000) / 100 : 0;
     }
     const desc = description.trim();
-    if (!desc) {
-      window.alert(es.discountModal.needDescription);
-      return;
-    }
+    if (!desc) return; // botón deshabilitado cuando descripción vacía
     onApply({
       discountAmount,
       discountPercent,
@@ -179,14 +176,15 @@ export function DiscountModal({ subtotal, onApply, onClose }: Props) {
         <div className="mt-4 flex gap-2">
           <button
             type="button"
-            className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-bold text-slate-700"
+            className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
             onClick={onClose}
           >
             {es.restaurant.cancelOpen}
           </button>
           <button
             type="button"
-            className="btn-pos-primary flex-1 py-2 text-sm font-extrabold uppercase"
+            disabled={!description.trim()}
+            className="btn-pos-primary flex-1 py-2.5 text-sm font-extrabold uppercase disabled:opacity-40"
             onClick={submit}
           >
             {es.discountModal.apply}
