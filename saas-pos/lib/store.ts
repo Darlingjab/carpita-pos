@@ -6,6 +6,7 @@ import {
 } from "@/lib/mock-data";
 import type { Customer, KitchenTicket, RegisterMovement, Sale } from "@/lib/types";
 import type { CustomerPointsMovement } from "@/lib/types";
+import type { TableAssignment } from "@/lib/table-assignments";
 
 /** Solo ventas creadas en esta sesión (POS). El histórico del archivo vive en `importedSalesSeed` y se une en la API. */
 const sales: Sale[] = [];
@@ -13,6 +14,8 @@ const registerMovements: RegisterMovement[] = [...demoRegisterMovements];
 const kitchenTickets: KitchenTicket[] = [];
 const customers: Customer[] = [...demoCustomers];
 const customerPointsMovements: CustomerPointsMovement[] = [];
+/** Asignaciones de mesa sincronizadas en Supabase para visibilidad multi-usuario. */
+const tableAssignments: Record<string, TableAssignment> = {};
 
 export function getProducts() {
   return demoProducts;
@@ -91,6 +94,22 @@ export function findCustomer(customerId: string) {
   return customers.find((c) => c.id === customerId) ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// Table assignments (server-side, synced to Supabase)
+// ---------------------------------------------------------------------------
+
+export function getTableAssignments(): Record<string, TableAssignment> {
+  return { ...tableAssignments };
+}
+
+export function upsertTableAssignmentInStore(tableId: string, assignment: TableAssignment) {
+  tableAssignments[tableId] = assignment;
+}
+
+export function removeTableAssignmentFromStore(tableId: string) {
+  delete tableAssignments[tableId];
+}
+
 /** Snapshot para persistencia en Supabase (servidor). */
 export type StoreSnapshot = {
   sales: Sale[];
@@ -98,6 +117,7 @@ export type StoreSnapshot = {
   kitchenTickets: KitchenTicket[];
   customers: Customer[];
   customerPointsMovements: CustomerPointsMovement[];
+  tableAssignments?: Record<string, TableAssignment>;
 };
 
 export function getStoreSnapshot(): StoreSnapshot {
@@ -107,6 +127,7 @@ export function getStoreSnapshot(): StoreSnapshot {
     kitchenTickets: [...kitchenTickets],
     customers: [...customers],
     customerPointsMovements: [...customerPointsMovements],
+    tableAssignments: { ...tableAssignments },
   };
 }
 
@@ -121,4 +142,9 @@ export function replaceStoreSnapshot(s: StoreSnapshot) {
   customers.push(...s.customers);
   customerPointsMovements.length = 0;
   customerPointsMovements.push(...s.customerPointsMovements);
+  // Restore table assignments (if present in snapshot)
+  Object.keys(tableAssignments).forEach((k) => delete tableAssignments[k]);
+  if (s.tableAssignments) {
+    Object.assign(tableAssignments, s.tableAssignments);
+  }
 }

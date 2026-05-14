@@ -6,6 +6,7 @@ import { getCurrentUserMock } from "@/lib/auth";
 import { formatRole } from "@/lib/locale";
 import { RoleGate } from "@/lib/components/RoleGate";
 import { RegisterClosedNoticeModal } from "@/lib/components/RegisterClosedNoticeModal";
+import { RegisterStatusChip } from "@/lib/components/RegisterStatusChip";
 import { OfflineProtection } from "@/lib/components/OfflineProtection";
 import { OfflineSalesSync } from "@/lib/components/OfflineSalesSync";
 import { defaultDashboardPath } from "@/lib/role-access";
@@ -41,9 +42,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </Link>
         <DashboardNav role={user.role} enabled={user.enabled !== false} />
         <div
-          className="flex shrink-0 items-center border-l pl-1 sm:pl-2"
+          className="flex shrink-0 items-center gap-2 border-l pl-2 sm:pl-3"
           style={{ borderColor: "var(--pos-border)" }}
         >
+          <RegisterStatusChip />
           <DashboardUserMenu fullName={user.fullName} roleLabel={formatRole(user.role)} initial={initial} />
         </div>
       </header>

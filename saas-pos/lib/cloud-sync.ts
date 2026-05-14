@@ -19,6 +19,7 @@ type DbRow = {
   user_accounts: unknown;
   register_open: boolean;
   register_opening_float: number | string;
+  table_assignments: unknown;
 };
 
 // ---------------------------------------------------------------------------
@@ -66,6 +67,13 @@ function asPointsArray(v: unknown): CustomerPointsMovement[] {
 
 function asUserRows(v: unknown): UserAccountRow[] {
   return Array.isArray(v) ? (v as UserAccountRow[]) : [];
+}
+
+function asTableAssignments(v: unknown): Record<string, import("@/lib/table-assignments").TableAssignment> {
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    return v as Record<string, import("@/lib/table-assignments").TableAssignment>;
+  }
+  return {};
 }
 
 function isDbUnseeded(row: DbRow): boolean {
@@ -124,6 +132,7 @@ async function _executePull(): Promise<void> {
     kitchenTickets: asKitchenArray(row.kitchen_tickets),
     customers: asCustomerArray(row.customers),
     customerPointsMovements: asPointsArray(row.customer_points_movements),
+    tableAssignments: asTableAssignments(row.table_assignments),
   };
   replaceStoreSnapshot(snap);
   replaceAllUserRows(asUserRows(row.user_accounts));
@@ -181,6 +190,7 @@ export async function pushRuntimeToCloud(): Promise<{ ok: boolean; error?: strin
       kitchen_tickets: storeSnap.kitchenTickets,
       customers: storeSnap.customers,
       customer_points_movements: storeSnap.customerPointsMovements,
+      table_assignments: storeSnap.tableAssignments ?? {},
       user_accounts: usersSnap,
       register_open: reg.isOpen,
       register_opening_float: reg.openingFloat,

@@ -8,7 +8,7 @@ import { TableFloorMap } from "@/lib/components/TableFloorMap";
 import { RestaurantOrderSidebar } from "@/lib/components/RestaurantOrderSidebar";
 import { OpenTableModal } from "@/lib/components/OpenTableModal";
 import {
-  loadTableAssignments,
+  fetchTableAssignments,
   removeTableAssignment,
   upsertTableAssignment,
   type TableAssignment,
@@ -38,6 +38,9 @@ type CounterOrder = {
   createdAt: string;
 };
 
+/** Intervalo de polling en ms — sincroniza mesas, caja y cocina entre usuarios. */
+const POLL_INTERVAL_MS = 12_000;
+
 export function RestaurantPageClient({
   tables,
   currentUser,
@@ -60,15 +63,24 @@ export function RestaurantPageClient({
   const [mobileMesasPane, setMobileMesasPane] = useState<"floor" | "order">("floor");
   const prevSessionTableRef = useRef<string | null>(null);
 
-  const syncAssignments = useCallback(() => {
-    setAssignments(loadTableAssignments());
+  // ---------------------------------------------------------------------------
+  // Sincronización de asignaciones de mesa — fuente de verdad: servidor
+  // ---------------------------------------------------------------------------
+
+  const refreshAssignments = useCallback(async () => {
+    const map = await fetchTableAssignments();
+    setAssignments(map);
   }, []);
 
   useEffect(() => {
-    syncAssignments();
-    window.addEventListener("pos-table-assignments-updated", syncAssignments);
-    return () => window.removeEventListener("pos-table-assignments-updated", syncAssignments);
-  }, [syncAssignments]);
+    void refreshAssignments();
+    window.addEventListener("pos-table-assignments-updated", () => void refreshAssignments());
+    return () => window.removeEventListener("pos-table-assignments-updated", () => void refreshAssignments());
+  }, [refreshAssignments]);
+
+  // ---------------------------------------------------------------------------
+  // Estado de caja
+  // ---------------------------------------------------------------------------
 
   const refreshRegister = useCallback(() => {
     fetch("/api/register/status")
@@ -83,6 +95,10 @@ export function RestaurantPageClient({
     return () => window.removeEventListener("pos-register-updated", refreshRegister);
   }, [refreshRegister]);
 
+  // ---------------------------------------------------------------------------
+  // Cocina
+  // ---------------------------------------------------------------------------
+
   const refreshKitchen = useCallback(() => {
     fetch("/api/kitchen/tickets")
       .then((r) => r.json())
@@ -95,6 +111,23 @@ export function RestaurantPageClient({
     window.addEventListener("pos-kitchen-updated", refreshKitchen);
     return () => window.removeEventListener("pos-kitchen-updated", refreshKitchen);
   }, [refreshKitchen]);
+
+  // ---------------------------------------------------------------------------
+  // Polling en tiempo real — sincroniza el estado entre usuarios sin WebSockets
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      void refreshAssignments();
+      refreshRegister();
+      refreshKitchen();
+    }, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [refreshAssignments, refreshRegister, refreshKitchen]);
+
+  // ---------------------------------------------------------------------------
+  // URL sync
+  // ---------------------------------------------------------------------------
 
   const syncUrl = useCallback(
     (tableId: string | null) => {
@@ -111,8 +144,7 @@ export function RestaurantPageClient({
     const m = searchParams.get("mesa");
     if (!m || !tables.some((t) => t.id === m)) return;
 
-    const map = loadTableAssignments();
-    const a = map[m];
+    const a = assignments[m];
 
     if (a) {
       setSession({ tableId: m, clientName: a.clientName, customerId: a.customerId ?? null });
@@ -120,7 +152,8 @@ export function RestaurantPageClient({
     } else {
       setModalTableId(m);
     }
-  }, [searchParams, tables, syncUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tables]);
 
   const activeVisualId = modalTableId ?? session?.tableId ?? null;
 
@@ -138,13 +171,17 @@ export function RestaurantPageClient({
     }
   }, [session?.tableId, sub]);
 
+  // ---------------------------------------------------------------------------
+  // Acciones de mesa
+  // ---------------------------------------------------------------------------
+
   const onTablePress = useCallback(
     (id: string) => {
       if (session?.tableId === id) {
         syncUrl(id);
         return;
       }
-      const existing = loadTableAssignments()[id];
+      const existing = assignments[id];
 
       if (existing) {
         setSession({
@@ -158,24 +195,34 @@ export function RestaurantPageClient({
       }
       setModalTableId(id);
     },
-    [session?.tableId, syncUrl],
+    [session?.tableId, syncUrl, assignments],
   );
 
   const confirmOpenTable = useCallback(
     (clientName: string, customerId: string | null) => {
       if (!modalTableId) return;
-      upsertTableAssignment(modalTableId, {
+      void upsertTableAssignment(modalTableId, {
         serverId: currentUser.id,
         serverName: currentUser.fullName,
         clientName,
         customerId,
-      });
-      syncAssignments();
+      }).then(() => void refreshAssignments());
+      // Actualización optimista inmediata en UI
+      setAssignments((prev) => ({
+        ...prev,
+        [modalTableId]: {
+          serverId: currentUser.id,
+          serverName: currentUser.fullName,
+          clientName,
+          customerId: customerId ?? null,
+          openedAt: new Date().toISOString(),
+        },
+      }));
       setSession({ tableId: modalTableId, clientName, customerId });
       setModalTableId(null);
       syncUrl(modalTableId);
     },
-    [currentUser.fullName, currentUser.id, modalTableId, syncAssignments, syncUrl],
+    [currentUser.fullName, currentUser.id, modalTableId, refreshAssignments, syncUrl],
   );
 
   const closeTable = useCallback(async () => {
@@ -204,13 +251,18 @@ export function RestaurantPageClient({
       } catch {
         // Best effort: if kitchen update fails, still allow table close.
       }
-      removeTableAssignment(currentTableId);
-      syncAssignments();
+      // Actualización optimista en UI
+      setAssignments((prev) => {
+        const next = { ...prev };
+        delete next[currentTableId];
+        return next;
+      });
+      await removeTableAssignment(currentTableId);
     }
     setSession(null);
     setModalTableId(null);
     syncUrl(null);
-  }, [session?.tableId, syncAssignments, syncUrl]);
+  }, [session?.tableId, syncUrl]);
 
   const selectedTableEntity = session
     ? tables.find((t) => t.id === session.tableId) ?? null
