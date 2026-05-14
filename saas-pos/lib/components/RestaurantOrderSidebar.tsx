@@ -13,6 +13,7 @@ import type { DiningTable, PaymentMethod, Product, SaleChannel, SaleItem, SalePa
 import { DiscountModal, type DiscountApplyPayload } from "@/lib/components/DiscountModal";
 import { PaymentChangeModal, type PaymentModalResult } from "@/lib/components/PaymentChangeModal";
 import { printKitchenTicket, printSaleReceipt, printPreCuenta, openCashDrawerStub } from "@/lib/print-ticket";
+import { loadPrinterSettings } from "@/lib/printer-settings";
 import { RestaurantFavoritesAdminModal } from "@/lib/components/RestaurantFavoritesAdminModal";
 import {
   appearanceForSlot,
@@ -377,7 +378,10 @@ export function RestaurantOrderSidebar({
       lines: unsentLines.map((l) => ({ name: l.name, qty: l.qty })),
     };
     lastPrintPayload.current = payload;
-    printKitchenTicket(payload);
+    // Respetar preferencia: imprimir comanda automáticamente o no
+    if (loadPrinterSettings().printKitchenAuto) {
+      printKitchenTicket(payload);
+    }
     setCart((prev) =>
       prev.map((l) => (unsentLines.some((u) => u.id === l.id) ? { ...l, kitchenSent: true } : l)),
     );
@@ -505,7 +509,7 @@ export function RestaurantOrderSidebar({
     }
 
     // Imprimir recibo del cliente tras cobro exitoso (o en cola offline)
-    printSaleReceipt({
+    if (loadPrinterSettings().printReceiptAuto) printSaleReceipt({
       tableLabel: table?.label ?? undefined,
       serverName: billingServerName ?? undefined,
       customerName: customer,

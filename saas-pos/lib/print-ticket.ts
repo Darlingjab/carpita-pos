@@ -53,8 +53,14 @@ function methodLabel(m: "cash" | "card" | "transfer") {
 }
 
 function pageSize(paper: PrinterTicketSettings["paperWidth"]) {
-  // Ancho real del papel térmico en mm → fuerza al navegador a usar ese ancho al imprimir
   return paper === "58mm" ? "58mm" : "80mm";
+}
+
+function logoBlock(logoUrl: string, fs: number) {
+  if (!logoUrl.trim()) return "";
+  return `<div class="center" style="margin-bottom:6px;">
+    <img src="${esc(logoUrl.trim())}" alt="Logo" style="max-height:${fs * 5}px; max-width:100%; object-fit:contain;" onerror="this.style.display='none'"/>
+  </div>`;
 }
 
 function fontPx(scale: PrinterTicketSettings["fontScale"]) {
@@ -191,25 +197,19 @@ export function printKitchenTicket(opts: {
   const fs = fontPx(settings.fontScale);
   const now = new Date();
 
-  const storeLine =
-    settings.storeName.trim()
-      ? `<p class="center bold" style="font-size:${fs + 3}px;">${esc(settings.storeName.trim())}</p>`
-      : "";
-
+  const logo = logoBlock(settings.logoUrl, fs);
+  const storeLine = settings.storeName.trim()
+    ? `<p class="center bold" style="font-size:${fs + 3}px;">${esc(settings.storeName.trim())}</p>`
+    : "";
   const dateLine = settings.showDateTime
     ? `<p class="center" style="font-size:${fs - 1}px; color:#444;">${esc(fmtDate(now))}</p>`
     : "";
-
-  const footer =
-    settings.footerLine.trim()
-      ? `<hr class="sep"/><p class="center" style="font-size:${fs - 1}px;">${esc(settings.footerLine.trim())}</p>`
-      : "";
+  const footer = settings.footerLine.trim()
+    ? `<hr class="sep"/><p class="center" style="font-size:${fs - 1}px;">${esc(settings.footerLine.trim())}</p>`
+    : "";
 
   const itemsHtml = opts.lines
-    .map(
-      (l) =>
-        `<li><span class="item-qty">${l.qty}×</span> ${esc(l.name)}</li>`,
-    )
+    .map((l) => `<li><span class="item-qty">${l.qty}×</span> ${esc(l.name)}</li>`)
     .join("");
 
   const html = `<!DOCTYPE html>
@@ -221,6 +221,7 @@ export function printKitchenTicket(opts: {
   <style>${baseCss(settings, fs)}</style>
 </head>
 <body>
+  ${logo}
   ${storeLine}
   <hr class="sep-solid"/>
   <p class="center"><span class="tag">🍳 COCINA</span></p>
@@ -251,6 +252,7 @@ export function printSaleReceipt(data: SaleReceiptData) {
   const now = new Date();
 
   const storeName = (data.storeName ?? settings.storeName).trim();
+  const logo = logoBlock(settings.logoUrl, fs);
   const storeLine = storeName
     ? `<p class="center bold" style="font-size:${fs + 3}px;">${esc(storeName)}</p>`
     : "";
@@ -316,6 +318,7 @@ export function printSaleReceipt(data: SaleReceiptData) {
   <style>${baseCss(settings, fs)}</style>
 </head>
 <body>
+  ${logo}
   ${storeLine}
   <hr class="sep-solid"/>
   ${headerInfo}
@@ -360,6 +363,7 @@ export function printPreCuenta(opts: {
   const fs = fontPx(settings.fontScale);
   const now = new Date();
   const storeName = settings.storeName.trim();
+  const logo = logoBlock(settings.logoUrl, fs);
 
   const html = `<!DOCTYPE html>
 <html lang="es">
@@ -369,6 +373,7 @@ export function printPreCuenta(opts: {
   <style>${baseCss(settings, fs)}</style>
 </head>
 <body>
+  ${logo}
   ${storeName ? `<p class="center bold" style="font-size:${fs + 3}px;">${esc(storeName)}</p>` : ""}
   <hr class="sep-solid"/>
   <p class="center"><span class="tag">PRE-CUENTA</span></p>

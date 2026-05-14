@@ -194,18 +194,49 @@ export function ConfigPageClient() {
           {tab === "ajustes" && (
             <div className="animate-fade-in space-y-6">
               <div>
-                <h2 className="text-base font-black text-slate-900">Ajustes de impresora</h2>
+                <h2 className="text-base font-black text-slate-900">Impresora y tickets</h2>
                 <p className="mt-1 max-w-2xl text-sm text-slate-600">
-                  Define cómo se verá la comanda al enviar a cocina: encabezado, ancho térmico, texto y si se abre el
-                  cuadro de impresión solo.
+                  Configurá el logo, el encabezado, el papel y cuándo se imprime automáticamente.
+                  Los cambios se guardan en este dispositivo.
                 </p>
               </div>
 
+              {/* ── Sección 1: Identidad del ticket ── */}
               <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Identidad del ticket
+                </p>
                 <div className="grid gap-5 sm:grid-cols-2">
+                  {/* Logo URL + vista previa */}
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Nombre en ticket (encabezado)
+                      URL del logo
+                    </label>
+                    <div className="mt-1.5 flex items-center gap-3">
+                      <input
+                        className="input-base flex-1 text-sm"
+                        placeholder="https://mi-restaurante.com/logo.png"
+                        value={printer.logoUrl}
+                        onChange={(e) => setPrinter({ ...printer, logoUrl: e.target.value })}
+                      />
+                      {printer.logoUrl.trim() && (
+                        <img
+                          src={printer.logoUrl.trim()}
+                          alt="Vista previa"
+                          className="h-10 w-10 shrink-0 rounded-lg border border-slate-200 object-contain p-0.5"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
+                    </div>
+                    <p className="mt-1 text-[0.7rem] text-slate-500">
+                      Aparece en el encabezado de comandas y recibos. Dejá vacío para omitir.
+                    </p>
+                  </div>
+
+                  {/* Nombre en ticket */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Nombre del restaurante en ticket
                     </label>
                     <input
                       className="input-base mt-1.5 w-full text-sm"
@@ -213,110 +244,165 @@ export function ConfigPageClient() {
                       value={printer.storeName}
                       onChange={(e) => setPrinter({ ...printer, storeName: e.target.value })}
                     />
-                    <p className="mt-1 text-[0.7rem] text-slate-500">Aparece arriba de la comanda, centrado.</p>
+                    <p className="mt-1 text-[0.7rem] text-slate-500">
+                      Se muestra centrado en la parte superior del ticket.
+                    </p>
                   </div>
 
+                  {/* Pie de ticket */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
+                      Mensaje de despedida (pie del recibo)
+                    </label>
+                    <textarea
+                      className="input-base mt-1.5 min-h-[68px] w-full resize-y text-sm"
+                      placeholder="Ej. ¡Gracias por visitarnos! · Tel. 02-xxx-xxxx"
+                      value={printer.footerLine}
+                      onChange={(e) => setPrinter({ ...printer, footerLine: e.target.value })}
+                      rows={2}
+                    />
+                    <p className="mt-1 text-[0.7rem] text-slate-500">
+                      Aparece al final del recibo del cliente. Si lo dejás vacío se muestra «¡Gracias por su visita!»
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Sección 2: Papel y texto ── */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Papel y texto
+                </p>
+                <div className="grid gap-5 sm:grid-cols-2">
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Ancho de papel
+                      Ancho de papel térmico
                     </label>
                     <select
                       className="input-base mt-1.5 w-full text-sm"
                       value={printer.paperWidth}
                       onChange={(e) =>
-                        setPrinter({
-                          ...printer,
-                          paperWidth: e.target.value as PrinterTicketSettings["paperWidth"],
-                        })
+                        setPrinter({ ...printer, paperWidth: e.target.value as PrinterTicketSettings["paperWidth"] })
                       }
                     >
-                      <option value="58mm">58 mm (estrecho)</option>
-                      <option value="80mm">80 mm (estándar)</option>
+                      <option value="58mm">58 mm (rollo estrecho)</option>
+                      <option value="80mm">80 mm (estándar POS)</option>
                     </select>
-                    <p className="mt-1 text-[0.7rem] text-slate-500">Limita el ancho de la vista previa al imprimir.</p>
+                    <p className="mt-1 text-[0.7rem] text-slate-500">
+                      Ajusta el ancho de impresión para que el ticket ocupe todo el papel.
+                    </p>
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Tamaño del texto
+                      Tamaño de letra
                     </label>
                     <select
                       className="input-base mt-1.5 w-full text-sm"
                       value={printer.fontScale}
                       onChange={(e) =>
-                        setPrinter({
-                          ...printer,
-                          fontScale: e.target.value as PrinterTicketSettings["fontScale"],
-                        })
+                        setPrinter({ ...printer, fontScale: e.target.value as PrinterTicketSettings["fontScale"] })
                       }
                     >
-                      <option value="compact">Compacto</option>
+                      <option value="compact">Compacto — más ítems por hoja</option>
                       <option value="normal">Normal</option>
-                      <option value="large">Grande</option>
+                      <option value="large">Grande — más legible</option>
                     </select>
                   </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-bold uppercase tracking-wide text-slate-500">
-                      Pie de ticket (opcional)
-                    </label>
-                    <textarea
-                      className="input-base mt-1.5 min-h-[72px] w-full resize-y text-sm"
-                      placeholder="Ej. Gracias por su visita · Tel. 02-xxx-xxxx"
-                      value={printer.footerLine}
-                      onChange={(e) => setPrinter({ ...printer, footerLine: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
                 </div>
+              </div>
 
-                <div className="mt-6 space-y-3 rounded-lg border border-slate-100 bg-slate-50/80 p-4">
-                  <p className="text-xs font-bold uppercase text-slate-500">Comportamiento</p>
+              {/* ── Sección 3: Comportamiento de impresión ── */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                <p className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Comportamiento de impresión
+                </p>
+                <div className="space-y-4">
                   <label className="flex cursor-pointer items-start gap-3 text-sm">
                     <input
                       type="checkbox"
-                      className="mt-0.5"
+                      className="mt-0.5 accent-emerald-600"
                       checked={printer.showDateTime}
                       onChange={(e) => setPrinter({ ...printer, showDateTime: e.target.checked })}
                     />
                     <span>
-                      <span className="font-semibold text-slate-800">Mostrar fecha y hora</span>
+                      <span className="font-semibold text-slate-800">Mostrar fecha y hora en el ticket</span>
                       <span className="mt-0.5 block text-xs text-slate-500">
-                        Incluye la marca de tiempo en la comanda (útil para cocina).
+                        Imprime la hora exacta en comandas y recibos. Útil para seguimiento en cocina.
                       </span>
                     </span>
                   </label>
+
                   <label className="flex cursor-pointer items-start gap-3 text-sm">
                     <input
                       type="checkbox"
-                      className="mt-0.5"
+                      className="mt-0.5 accent-emerald-600"
                       checked={printer.autoPrint}
                       onChange={(e) => setPrinter({ ...printer, autoPrint: e.target.checked })}
                     />
                     <span>
-                      <span className="font-semibold text-slate-800">Abrir diálogo de impresión al enviar</span>
+                      <span className="font-semibold text-slate-800">Abrir diálogo de impresión automáticamente</span>
                       <span className="mt-0.5 block text-xs text-slate-500">
-                        Si lo desactivas, se abre la vista previa y puedes imprimir con Ctrl/Cmd+P o el menú del
-                        navegador.
+                        Si está activo, el cuadro de impresión del sistema se abre solo. Si lo desactivás, podés
+                        revisar la vista previa antes de imprimir con Ctrl/Cmd+P.
                       </span>
                     </span>
                   </label>
-                </div>
 
-                <div className="mt-6 flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    className="btn-pos-primary rounded-lg px-6 py-2.5 text-sm font-extrabold uppercase"
-                    onClick={savePrinter}
-                  >
-                    Guardar ajustes
-                  </button>
-                  {savedFlash && (
-                    <span className="text-sm font-semibold text-emerald-600" role="status">
-                      Guardado en este dispositivo
-                    </span>
-                  )}
+                  <hr className="border-slate-100" />
+
+                  <div>
+                    <p className="mb-2 text-xs font-semibold text-slate-500">¿Cuándo imprimir automáticamente?</p>
+                    <div className="space-y-3">
+                      <label className="flex cursor-pointer items-start gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 accent-emerald-600"
+                          checked={printer.printKitchenAuto}
+                          onChange={(e) => setPrinter({ ...printer, printKitchenAuto: e.target.checked })}
+                        />
+                        <span>
+                          <span className="font-semibold text-slate-800">🍳 Comanda de cocina al enviar pedido</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            Abre la comanda automáticamente cada vez que el mesero toca «Enviar a cocina».
+                            Desactivalo si la cocina usa el KDS en pantalla.
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 accent-emerald-600"
+                          checked={printer.printReceiptAuto}
+                          onChange={(e) => setPrinter({ ...printer, printReceiptAuto: e.target.checked })}
+                        />
+                        <span>
+                          <span className="font-semibold text-slate-800">🧾 Recibo del cliente al cobrar</span>
+                          <span className="mt-0.5 block text-xs text-slate-500">
+                            Abre el recibo automáticamente al confirmar el pago.
+                            Desactivalo si el cliente prefiere recibo digital o no lo necesita.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className="btn-pos-primary rounded-lg px-6 py-2.5 text-sm font-extrabold uppercase"
+                  onClick={savePrinter}
+                >
+                  Guardar ajustes de impresora
+                </button>
+                {savedFlash && (
+                  <span className="text-sm font-semibold text-emerald-600" role="status">
+                    ✓ Guardado en este dispositivo
+                  </span>
+                )}
               </div>
             </div>
           )}
