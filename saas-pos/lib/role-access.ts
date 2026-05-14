@@ -1,10 +1,21 @@
 import type { RoleName } from "@/lib/types";
 
-const CASHIER_ALLOWED_PREFIXES = ["/mesas", "/ventas", "/register", "/pos", "/cocina"];
+/** Cajero: puede operar caja, ventas, gastos y ver clientes. */
+const CASHIER_ALLOWED_PREFIXES = [
+  "/mesas",
+  "/ventas",
+  "/register",
+  "/pos",
+  "/cocina",
+  "/gastos",
+  "/clientes",
+];
+
+/** Mesero: toma pedidos en salón y ve cocina. */
 const WAITER_ALLOWED_PREFIXES = ["/mesas", "/pos", "/cocina"];
 
 /**
- * Rutas permitidas por rol. `enabled === false` bloquea todo el dashboard salvo que el layout redirija.
+ * Rutas permitidas por rol. `enabled === false` bloquea todo el dashboard.
  */
 export function canAccessPath(
   role: RoleName,
@@ -21,6 +32,7 @@ export function canAccessPath(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
   }
+  // cashier
   return CASHIER_ALLOWED_PREFIXES.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
@@ -31,4 +43,3 @@ export function defaultDashboardPath(role: RoleName): string {
   if (role === "cook") return "/cocina";
   return "/mesas";
 }
-

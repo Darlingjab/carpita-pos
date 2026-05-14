@@ -32,8 +32,8 @@ const rows: UserAccountRow[] = [
   {
     id: "usr_supervisor",
     businessId: demoBusinessId,
-    fullName: "Sam Supervisor",
-    email: "supervisor@demo.local",
+    fullName: "Supervisor Carpita",
+    email: "supervisor@carpita",
     role: "supervisor",
     passwordPlain: "1234",
     enabled: true,

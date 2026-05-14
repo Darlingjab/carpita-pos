@@ -21,7 +21,7 @@ const TABS: { id: ConfigTab; label: string; icon: LucideIcon }[] = [
 
 function parseTab(v: string | null): ConfigTab {
   if (v === "equipo" || v === "ajustes") return v;
-  return "ajustes";
+  return "equipo"; // default: equipo es la sección más usada desde el nav
 }
 
 export function ConfigPageClient() {
@@ -52,7 +52,7 @@ export function ConfigPageClient() {
     const raw = searchParams.get("tab");
     if (raw && raw !== "ajustes" && raw !== "equipo") {
       const qs = new URLSearchParams(searchParams.toString());
-      qs.set("tab", "ajustes");
+      qs.set("tab", "equipo");
       router.replace(`${pathname}?${qs.toString()}`, { scroll: false });
     }
   }, [searchParams, pathname, router]);
@@ -64,9 +64,10 @@ export function ConfigPageClient() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="animate-fade-in space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Administración y equipo</h1>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">Equipo y configuración</h1>
+        <p className="mt-1 text-sm text-slate-500">Gestioná los usuarios del restaurante y ajustes del sistema.</p>
       </div>
 
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-[#f8fafc] shadow-sm">

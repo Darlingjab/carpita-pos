@@ -210,7 +210,7 @@ export default function FinanzasInformesPage() {
   return (
     <section className="space-y-8">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Finanzas</h1>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">Finanzas</h1>
         <p className="mt-1 text-sm text-slate-500">
           Informes, exportaciones y totales; filtra ventas por fechas y mesero.
         </p>

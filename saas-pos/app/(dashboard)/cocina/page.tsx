@@ -8,9 +8,9 @@ export default function CocinaPage() {
     <section className="space-y-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-bold text-slate-900">Cocina (KDS)</h1>
-          <p className="text-sm text-slate-500">
-            Los pedidos llegan al enviar «Enviar a cocina» desde Restaurante. Actualización automática cada 4 s.
+          <h1 className="text-2xl font-black tracking-tight text-slate-900">Cocina · KDS</h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Los pedidos llegan automáticamente al enviar desde Restaurante. Se actualiza cada 4 s.
           </p>
           <div className="mt-2">
             <ExportCsvPeriodLinks hrefBase="/api/kitchen/tickets/export" label="Exportar cocina CSV" />
