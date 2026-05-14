@@ -22,24 +22,30 @@ export default async function DashboardLayout({ children }: { children: React.Re
     >
       <header
         className="sticky top-0 z-50 flex h-12 shrink-0 items-stretch border-b bg-white px-2 sm:px-3"
-        style={{ borderColor: "var(--pos-border)" }}
+        style={{
+          borderColor: "var(--pos-border)",
+          boxShadow: "0 1px 0 var(--pos-border), 0 2px 8px rgb(15 23 42 / 0.04)",
+        }}
       >
         <Link
           href={defaultDashboardPath(user.role)}
-          className="flex shrink-0 items-center pr-1 sm:pr-2"
+          className="flex shrink-0 items-center gap-2 pr-2 sm:pr-3"
           title={user.role === "cook" ? "Ir a cocina" : "Ir a restaurante"}
         >
-          <div className="flex items-center gap-2">
-            <Image
-              src="/logo/carpita.svg"
-              alt="Carpita"
-              width={32}
-              height={32}
-              unoptimized
-              className="h-8 w-8 rounded-lg border border-slate-200 bg-white p-1"
-            />
-          </div>
+          <Image
+            src="/logo/carpita.svg"
+            alt="Carpita"
+            width={28}
+            height={28}
+            unoptimized
+            className="h-7 w-7 rounded-lg border border-slate-100 bg-white p-0.5 shadow-sm"
+          />
+          <span className="hidden text-[0.72rem] font-black uppercase tracking-widest text-slate-800 sm:block">
+            Carpita
+          </span>
         </Link>
+        {/* Separador vertical */}
+        <div className="my-2.5 mr-1 w-px bg-slate-100 sm:mr-2" aria-hidden />
         <DashboardNav role={user.role} enabled={user.enabled !== false} />
         <div
           className="flex shrink-0 items-center gap-2 border-l pl-2 sm:pl-3"
