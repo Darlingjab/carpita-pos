@@ -50,6 +50,10 @@ export function EquipoTeamPanel() {
     setIsLoading(true);
     fetch("/api/users")
       .then((r) => {
+        if (r.status === 401) {
+          setLoadError("Tu sesión expiró. Recarga la página para continuar.");
+          return null;
+        }
         if (r.status === 403) {
           setLoadError("No tienes permiso para ver el equipo.");
           return null;

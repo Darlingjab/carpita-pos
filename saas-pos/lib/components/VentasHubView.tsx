@@ -357,10 +357,11 @@ export function VentasHubView() {
       if (!res.ok) {
         showToast(
           data?.message ??
-            data?.error ??
             (data?.error === "cloud_sync_failed"
               ? `No se guardó en Supabase: ${String(data?.detail ?? "")}`
-              : "No se pudo anular el movimiento."),
+              : data?.error === "already_voided"
+                ? "Este movimiento ya fue anulado."
+                : "No se pudo anular el movimiento."),
         );
         return;
       }
@@ -498,7 +499,7 @@ export function VentasHubView() {
   const topToday = useMemo(() => {
     const m = new Map<string, number>();
     for (const s of salesToday) {
-      for (const it of s.items) {
+      for (const it of (s.items ?? [])) {
         m.set(it.name, (m.get(it.name) ?? 0) + it.qty);
       }
     }
@@ -1311,6 +1312,39 @@ export function VentasHubView() {
         )}
 
       </div>
+
+      {/* Confirmación de anulación de movimiento */}
+      <ConfirmDialog
+        open={voidSaleConfirm !== null}
+        title={es.arqueosHub.voidMovement}
+        message={es.arqueosHub.voidConfirm}
+        confirmLabel="Anular"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={() => {
+          const id = voidSaleConfirm;
+          setVoidSaleConfirm(null);
+          if (id) void executeVoidSale(id);
+        }}
+        onCancel={() => setVoidSaleConfirm(null)}
+      />
+
+      {/* Confirmación de cierre de caja */}
+      <ConfirmDialog
+        open={closeRegisterConfirm !== null}
+        title="Cerrar caja"
+        message={closeRegisterConfirm ?? ""}
+        confirmLabel="Cerrar caja"
+        cancelLabel="Cancelar"
+        destructive
+        onConfirm={() => {
+          setCloseRegisterConfirm(null);
+          void executeCloseRegister();
+        }}
+        onCancel={() => setCloseRegisterConfirm(null)}
+      />
+
+      <ToastBanner message={toastMsg} onDismiss={() => setToastMsg(null)} />
     </div>
   );
 }

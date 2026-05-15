@@ -82,6 +82,8 @@ export function KitchenDisplayClient() {
   const prevTicketCountRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(false);
+  /** Ref que espeja audioEnabled para que closures memorizados siempre lean el valor actual. */
+  const audioEnabledRef = useRef(false);
 
   /** Activa el AudioContext mediante un gesto del usuario (necesario en Safari iOS). */
   function enableAudio() {
@@ -91,6 +93,7 @@ export function KitchenDisplayClient() {
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
       void audioCtxRef.current.resume();
+      audioEnabledRef.current = true;
       setAudioEnabled(true);
     } catch {
       /* ignore */
@@ -99,7 +102,7 @@ export function KitchenDisplayClient() {
 
   /** Genera un beep de cocina usando Web Audio API */
   function playKitchenBeep() {
-    if (!audioEnabled || !audioCtxRef.current) return;
+    if (!audioEnabledRef.current || !audioCtxRef.current) return;
     try {
       const ctx = audioCtxRef.current;
       const osc = ctx.createOscillator();

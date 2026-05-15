@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Suspense } from "react";
 import { DashboardNav } from "@/lib/components/DashboardNav";
 import { DashboardUserMenu } from "@/lib/components/DashboardUserMenu";
 import { getCurrentUserMock } from "@/lib/auth";
@@ -30,7 +31,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }}
       >
         <Link
-          href={user.role === "cook" ? "/cocina" : "/inicio"}
+          href={defaultDashboardPath(user.role)}
           className="flex shrink-0 items-center gap-2 pr-2 sm:pr-3"
           title="Ir a inicio"
         >
@@ -57,7 +58,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <DashboardUserMenu fullName={user.fullName} roleLabel={formatRole(user.role)} initial={initial} />
         </div>
       </header>
-      <RegisterClosedNoticeModal />
+      <Suspense fallback={null}>
+        <RegisterClosedNoticeModal />
+      </Suspense>
       <OfflineSalesSync />
       <OfflineProtection />
       <main className="mx-auto flex min-h-0 w-full max-w-[1800px] flex-1 flex-col overflow-x-auto p-3 sm:p-4">

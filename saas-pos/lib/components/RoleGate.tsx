@@ -7,11 +7,11 @@ import { canAccessPath } from "@/lib/role-access";
 function deniedMessage(role: RoleName): string {
   switch (role) {
     case "waiter":
-      return "Tu perfil de mesero incluye Restaurante, Punto de venta y Cocina (KDS). No incluye Ventas, Caja ni administración.";
+      return "Tu perfil de mesero incluye Restaurante, Punto de venta y Cocina (KDS). No incluye Dashboard, Caja ni administración.";
     case "cook":
       return "Tu perfil de cocina solo incluye la pantalla Cocina (KDS).";
     case "cashier":
-      return "Tu perfil de cajero incluye Restaurante, Ventas, Caja, Punto de venta y Cocina (KDS). El resto de secciones las gestiona un supervisor o administrador.";
+      return "Tu perfil de cajero incluye Inicio, Restaurante, Caja (Ventas, Gastos, Reportes), Punto de venta, Cocina y Clientes. El resto de secciones las gestiona un supervisor o administrador.";
     default:
       return "No tienes permiso para ver esta sección.";
   }

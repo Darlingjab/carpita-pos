@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
-import { Building2, Printer, Users } from "lucide-react";
+import { Building2, Printer, Shield, Users } from "lucide-react";
 import { EquipoTeamPanel } from "@/lib/components/EquipoTeamPanel";
+import { RolePermissionsPanel } from "@/lib/components/RolePermissionsPanel";
 import {
   defaultPrinterSettings,
   PRINTER_SETTINGS_KEY,
@@ -15,16 +16,17 @@ const RESTAURANT_PROFILE_KEY = "pos_restaurant_profile_v1";
 type RestaurantProfile = { name: string; tagline: string; logoUrl: string; phone: string; address: string };
 const defaultProfile: RestaurantProfile = { name: "", tagline: "", logoUrl: "", phone: "", address: "" };
 
-type ConfigTab = "ajustes" | "equipo" | "restaurante";
+type ConfigTab = "ajustes" | "equipo" | "restaurante" | "permisos";
 
 const TABS: { id: ConfigTab; label: string; icon: LucideIcon }[] = [
   { id: "restaurante", label: "Restaurante", icon: Building2 },
   { id: "ajustes", label: "Impresora", icon: Printer },
   { id: "equipo", label: "Equipo", icon: Users },
+  { id: "permisos", label: "Permisos", icon: Shield },
 ];
 
 function parseTab(v: string | null): ConfigTab {
-  if (v === "equipo" || v === "ajustes" || v === "restaurante") return v;
+  if (v === "equipo" || v === "ajustes" || v === "restaurante" || v === "permisos") return v;
   return "equipo"; // default: equipo es la sección más usada desde el nav
 }
 
@@ -68,7 +70,7 @@ export function ConfigPageClient() {
 
   useEffect(() => {
     const raw = searchParams.get("tab");
-    if (raw && raw !== "ajustes" && raw !== "equipo" && raw !== "restaurante") {
+    if (raw && raw !== "ajustes" && raw !== "equipo" && raw !== "restaurante" && raw !== "permisos") {
       const qs = new URLSearchParams(searchParams.toString());
       qs.set("tab", "equipo");
       router.replace(`${pathname}?${qs.toString()}`, { scroll: false });
@@ -410,6 +412,11 @@ export function ConfigPageClient() {
           {tab === "equipo" && (
             <div className="animate-fade-in space-y-4">
               <EquipoTeamPanel />
+            </div>
+          )}
+          {tab === "permisos" && (
+            <div className="animate-fade-in space-y-4">
+              <RolePermissionsPanel />
             </div>
           )}
         </div>

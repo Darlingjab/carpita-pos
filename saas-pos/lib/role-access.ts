@@ -1,17 +1,19 @@
 import type { RoleName } from "@/lib/types";
 
-/** Cajero: puede operar caja, ventas, gastos y ver clientes. */
+/** Cajero: opera caja, ventas, gastos, reportes básicos y ve clientes. */
 const CASHIER_ALLOWED_PREFIXES = [
+  "/inicio",
   "/mesas",
   "/ventas",
   "/register",
   "/pos",
   "/cocina",
   "/gastos",
+  "/finanzas",
   "/clientes",
 ];
 
-/** Mesero: toma pedidos en salón y ve cocina. */
+/** Mesero: toma pedidos en salón y ve cocina. Sin acceso a dashboard ni caja. */
 const WAITER_ALLOWED_PREFIXES = ["/mesas", "/pos", "/cocina"];
 
 /**
@@ -23,8 +25,6 @@ export function canAccessPath(
   options?: { enabled?: boolean },
 ): boolean {
   if (options?.enabled === false) return false;
-  // Dashboard ejecutivo: accesible para todos los roles (solo lectura).
-  if (pathname === "/inicio" || pathname.startsWith("/inicio/")) return true;
   if (role === "admin" || role === "supervisor") return true;
   if (role === "cook") {
     return pathname === "/cocina" || pathname.startsWith("/cocina/");
@@ -40,8 +40,9 @@ export function canAccessPath(
   );
 }
 
-/** Tras iniciar sesión o al pulsar el logo: cocina solo ve KDS; el resto entra por inicio (dashboard). */
+/** Tras iniciar sesión o al pulsar el logo: según el rol. */
 export function defaultDashboardPath(role: RoleName): string {
   if (role === "cook") return "/cocina";
+  if (role === "waiter") return "/mesas";
   return "/inicio";
 }

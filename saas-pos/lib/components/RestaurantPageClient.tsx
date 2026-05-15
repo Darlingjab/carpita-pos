@@ -304,13 +304,8 @@ export function RestaurantPageClient({
     );
   }, [mesaFilter, tables]);
 
-  const assignmentMap = useMemo(() => {
-    const m: Record<string, TableAssignment | undefined> = {};
-    for (const [k, v] of Object.entries(assignments)) {
-      m[k] = v;
-    }
-    return m;
-  }, [assignments]);
+  // assignmentMap is the same object as assignments; alias kept for clarity.
+  const assignmentMap = assignments;
 
   /** Resumen rápido del salón — mesas abiertas, ítems pendientes en cocina */
   const floorSummary = useMemo(() => {
