@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, KeyRound, LogOut } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut, Sun, Moon } from "lucide-react";
 import { es } from "@/lib/locale";
+import { setTheme, getCurrentTheme } from "@/lib/components/ThemeManager";
 
 type Props = {
   fullName: string;
@@ -20,7 +21,12 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
   const [confirmPwd, setConfirmPwd] = useState("");
   const [pwdBusy, setPwdBusy] = useState(false);
   const [pwdError, setPwdError] = useState<string>("");
+  const [theme, setThemeState] = useState<"light" | "dark">("light");
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setThemeState(getCurrentTheme());
+  }, []);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
@@ -133,6 +139,23 @@ export function DashboardUserMenu({ fullName, roleLabel, initial }: Props) {
           >
             <KeyRound className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
             {es.nav.changePassword}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            onClick={() => {
+              const next = theme === "dark" ? "light" : "dark";
+              setTheme(next);
+              setThemeState(next);
+            }}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden />
+            ) : (
+              <Moon className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+            )}
+            {theme === "dark" ? "Tema claro" : "Tema oscuro"}
           </button>
           <button
             type="button"

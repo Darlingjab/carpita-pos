@@ -23,6 +23,8 @@ export function canAccessPath(
   options?: { enabled?: boolean },
 ): boolean {
   if (options?.enabled === false) return false;
+  // Dashboard ejecutivo: accesible para todos los roles (solo lectura).
+  if (pathname === "/inicio" || pathname.startsWith("/inicio/")) return true;
   if (role === "admin" || role === "supervisor") return true;
   if (role === "cook") {
     return pathname === "/cocina" || pathname.startsWith("/cocina/");
@@ -38,8 +40,8 @@ export function canAccessPath(
   );
 }
 
-/** Tras iniciar sesión o al pulsar el logo: cocina solo ve KDS; el resto entra por restaurante. */
+/** Tras iniciar sesión o al pulsar el logo: cocina solo ve KDS; el resto entra por inicio (dashboard). */
 export function defaultDashboardPath(role: RoleName): string {
   if (role === "cook") return "/cocina";
-  return "/mesas";
+  return "/inicio";
 }

@@ -9,9 +9,6 @@ import { canAccessPath } from "@/lib/role-access";
 import { es } from "@/lib/locale";
 
 function linkActive(pathname: string, href: string) {
-  if (href === "/ventas") {
-    return pathname === "/ventas";
-  }
   return isNavActive(pathname, href);
 }
 
@@ -64,8 +61,9 @@ export function DashboardNav({ role, enabled = true }: { role: RoleName; enabled
         aria-label="Secciones"
         style={{ touchAction: "pan-x" }}
       >
-        {dashboardRoutes.map(({ href, label, icon: Icon }) => {
-          const allowed = canAccessPath(role, href, { enabled });
+        {dashboardRoutes.map((route) => {
+          const { href, label, icon: Icon } = route;
+          const allowed = route.groupPaths.some((p) => canAccessPath(role, p, { enabled }));
           const active = linkActive(pathname, href);
           const disabled = !allowed;
           if (disabled) {
@@ -74,14 +72,14 @@ export function DashboardNav({ role, enabled = true }: { role: RoleName; enabled
                 key={href}
                 aria-disabled="true"
                 title="No disponible para tu perfil"
-                className="relative flex min-w-max shrink-0 snap-start items-center gap-1 px-3 py-0 cursor-not-allowed text-slate-300 sm:gap-1.5 sm:px-3.5"
+                className="relative flex min-w-max shrink-0 snap-start items-center gap-1.5 px-3.5 py-0 cursor-not-allowed text-slate-300 sm:gap-2 sm:px-4"
               >
                 <Icon
-                  className="hidden shrink-0 text-slate-300 sm:block sm:h-[14px] sm:w-[14px]"
-                  strokeWidth={2}
+                  className="shrink-0 h-[18px] w-[18px] text-slate-300 sm:h-[20px] sm:w-[20px]"
+                  strokeWidth={1.75}
                   aria-hidden
                 />
-                <span className="whitespace-nowrap text-[0.62rem] font-extrabold uppercase leading-tight tracking-wide sm:text-[0.68rem]">
+                <span className="whitespace-nowrap text-[0.65rem] font-extrabold uppercase leading-tight tracking-wide sm:text-[0.72rem]">
                   {label}
                 </span>
               </span>
@@ -91,20 +89,20 @@ export function DashboardNav({ role, enabled = true }: { role: RoleName; enabled
             <Link
               key={href}
               href={href}
-              className={`relative flex min-w-max shrink-0 snap-start items-center gap-1 px-3 py-0 transition-[background-color,color] duration-150 ease-out sm:gap-1.5 sm:px-3.5 ${
+              className={`relative flex min-w-max shrink-0 snap-start items-center gap-1.5 px-3.5 py-0 transition-[background-color,color] duration-150 ease-out sm:gap-2 sm:px-4 ${
                 active
                   ? "text-[var(--pos-primary)] bg-[var(--pos-primary-light)] shadow-[inset_0_-2.5px_0_var(--pos-primary)]"
                   : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
               }`}
             >
               <Icon
-                className={`hidden shrink-0 sm:block sm:h-[14px] sm:w-[14px] ${
+                className={`shrink-0 h-[18px] w-[18px] sm:h-[20px] sm:w-[20px] ${
                   active ? "text-[var(--pos-primary)]" : "text-slate-400"
                 }`}
-                strokeWidth={active ? 2.5 : 2}
+                strokeWidth={active ? 2.5 : 1.75}
                 aria-hidden
               />
-              <span className={`whitespace-nowrap text-[0.62rem] font-extrabold uppercase leading-tight tracking-wide sm:text-[0.68rem] ${active ? "font-black" : ""}`}>
+              <span className={`whitespace-nowrap text-[0.65rem] font-extrabold uppercase leading-tight tracking-wide sm:text-[0.72rem] ${active ? "font-black" : ""}`}>
                 {label}
               </span>
             </Link>

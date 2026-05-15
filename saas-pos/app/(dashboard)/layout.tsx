@@ -10,6 +10,7 @@ import { RegisterStatusChip } from "@/lib/components/RegisterStatusChip";
 import { OfflineProtection } from "@/lib/components/OfflineProtection";
 import { OfflineSalesSync } from "@/lib/components/OfflineSalesSync";
 import { defaultDashboardPath } from "@/lib/role-access";
+import { ThemeManager } from "@/lib/components/ThemeManager";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUserMock();
@@ -20,6 +21,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       className="flex min-h-dvh flex-col"
       style={{ backgroundColor: "var(--pos-bg)", color: "var(--pos-text)" }}
     >
+      <ThemeManager />
       <header
         className="sticky top-0 z-50 flex h-12 shrink-0 items-stretch border-b bg-white px-2 sm:px-3"
         style={{
@@ -28,9 +30,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
         }}
       >
         <Link
-          href={defaultDashboardPath(user.role)}
+          href={user.role === "cook" ? "/cocina" : "/inicio"}
           className="flex shrink-0 items-center gap-2 pr-2 sm:pr-3"
-          title={user.role === "cook" ? "Ir a cocina" : "Ir a restaurante"}
+          title="Ir a inicio"
         >
           <Image
             src="/logo/carpita.svg"

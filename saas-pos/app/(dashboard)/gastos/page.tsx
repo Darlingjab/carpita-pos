@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { RegisterMovement } from "@/lib/types";
+import { SectionSubNav, SUB_NAV_GROUPS } from "@/lib/components/SectionSubNav";
 
 const CATEGORIAS = [
   { value: "Insumos", label: "Insumos" },
@@ -148,6 +149,7 @@ export default function GastosPage() {
 
   return (
     <div className="animate-fade-in space-y-6 p-4 sm:p-6">
+      <SectionSubNav items={SUB_NAV_GROUPS.caja} />
       {/* Flash */}
       {flash && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-sm">

@@ -64,6 +64,74 @@
   color-scheme: light;
 }
 
+[data-theme="dark"] {
+  /* Marca - el naranja se mantiene pero ajustamos hover */
+  --pos-primary:       #ff8101;
+  --pos-primary-hover: #ffa340;
+  --pos-primary-light: rgb(255 129 1 / 0.12);
+  --pos-primary-ring:  rgb(255 129 1 / 0.32);
+
+  /* Superficies oscuras */
+  --pos-bg:      #0f172a;   /* slate-900 - fondo raíz */
+  --pos-surface: #1e293b;   /* slate-800 - superficies intermedias */
+  --pos-panel:   #1e293b;   /* slate-800 - tarjetas y paneles */
+
+  /* Texto invertido */
+  --pos-text:           #f8fafc;   /* slate-50 */
+  --pos-text-secondary: #cbd5e1;   /* slate-300 */
+  --pos-text-muted:     #64748b;   /* slate-500 */
+
+  /* Bordes más visibles en fondo oscuro */
+  --pos-border:        rgb(248 250 252 / 0.10);
+  --pos-border-strong: rgb(248 250 252 / 0.18);
+
+  /* Semánticos */
+  --pos-accent:  #60a5fa;
+  --pos-success: #34d399;
+  --pos-warning: #fbbf24;
+  --pos-danger:  #f87171;
+
+  /* Sombras más sutiles en dark */
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.20);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.25), 0 1px 2px rgb(0 0 0 / 0.20);
+  --shadow-md: 0 4px 12px rgb(0 0 0 / 0.30), 0 2px 4px rgb(0 0 0 / 0.20);
+  --shadow-lg: 0 12px 32px rgb(0 0 0 / 0.40), 0 4px 8px rgb(0 0 0 / 0.25);
+  --shadow-xl: 0 24px 48px rgb(0 0 0 / 0.50), 0 8px 16px rgb(0 0 0 / 0.30);
+
+  color-scheme: dark;
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: var(--pos-panel) !important;
+  color: var(--pos-text);
+}
+
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-slate-800 {
+  color: var(--pos-text);
+}
+
+[data-theme="dark"] .text-slate-700,
+[data-theme="dark"] .text-slate-600 {
+  color: var(--pos-text-secondary);
+}
+
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-400 {
+  color: var(--pos-text-muted);
+}
+
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300,
+[data-theme="dark"] .border-slate-100 {
+  border-color: var(--pos-border);
+}
+
+[data-theme="dark"] .bg-slate-50,
+[data-theme="dark"] .bg-slate-100 {
+  background-color: var(--pos-surface);
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

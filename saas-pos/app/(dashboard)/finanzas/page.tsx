@@ -6,6 +6,7 @@ import { importedSalesStats } from "@/lib/data/imported-sales-stats";
 import { importedSalesSeed } from "@/lib/data/imported-sales-sample";
 import type { KitchenTicket, RegisterMovement, Sale } from "@/lib/types";
 import { ExportCsvPeriodLinks } from "@/lib/components/ExportCsvPeriodLinks";
+import { SectionSubNav, SUB_NAV_GROUPS } from "@/lib/components/SectionSubNav";
 
 function currency(n: number) {
   return new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
@@ -251,6 +252,7 @@ export default function FinanzasInformesPage() {
 
   return (
     <section className="space-y-8">
+      <SectionSubNav items={SUB_NAV_GROUPS.caja} />
       <div>
         <h1 className="text-2xl font-black tracking-tight text-slate-900">Finanzas</h1>
         <p className="mt-1 text-sm text-slate-500">
