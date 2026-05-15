@@ -66,6 +66,10 @@ export function RestaurantPageClient({
 
   function showToast(msg: string) { setToastMsg(msg); }
   const prevSessionTableRef = useRef<string | null>(null);
+  const assignmentsRef = useRef<Record<string, TableAssignment>>({});
+  useEffect(() => {
+    assignmentsRef.current = assignments;
+  }, [assignments]);
 
   // ---------------------------------------------------------------------------
   // Sincronización de asignaciones de mesa — fuente de verdad: servidor
@@ -149,7 +153,7 @@ export function RestaurantPageClient({
     const m = searchParams.get("mesa");
     if (!m || !tables.some((t) => t.id === m)) return;
 
-    const a = assignments[m];
+    const a = assignmentsRef.current[m];
 
     if (a) {
       setSession({ tableId: m, clientName: a.clientName, customerId: a.customerId ?? null });
@@ -157,7 +161,6 @@ export function RestaurantPageClient({
     } else {
       setModalTableId(m);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, tables]);
 
   const activeVisualId = modalTableId ?? session?.tableId ?? null;

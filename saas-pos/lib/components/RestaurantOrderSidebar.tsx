@@ -126,6 +126,7 @@ export function RestaurantOrderSidebar({
   /** Por defecto expandido; el cajero puede minimizar para ganar espacio. */
   const [favoritesSectionOpen, setFavoritesSectionOpen] = useState(true);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isSendingKitchen, setIsSendingKitchen] = useState(false);
   const [closeTableConfirm, setCloseTableConfirm] = useState(false);
   const closeTableCallback = useRef<(() => void | Promise<void>) | null>(null);
 
@@ -352,54 +353,63 @@ export function RestaurantOrderSidebar({
   }
 
   async function sendKitchen() {
+    if (isSendingKitchen) return;
     if (registerOpen === false) {
       showToast(es.orderFlow.registerClosed);
       return;
     }
     if (unsentLines.length === 0) return;
-    const items: SaleItem[] = unsentLines.map((l) => ({
-      productId: l.productId,
-      name: l.name,
-      qty: l.qty,
-      unitPrice: l.unitPrice,
-      lineTotal: l.qty * l.unitPrice,
-    }));
-    const res = await fetch("/api/kitchen/tickets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        channel,
-        tableId,
-        tableLabel: tableLabelForKitchen,
-        counterOrderId,
-        items,
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      showToast(
-        err?.error === "items_required"
-          ? "La comanda no tiene productos válidos."
-          : err?.error === "Forbidden"
-            ? "No tienes permiso para enviar a cocina."
-            : "No se pudo registrar en cocina.",
+    setIsSendingKitchen(true);
+    try {
+      const items: SaleItem[] = unsentLines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        qty: l.qty,
+        unitPrice: l.unitPrice,
+        lineTotal: l.qty * l.unitPrice,
+      }));
+      const res = await fetch("/api/kitchen/tickets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel,
+          tableId,
+          tableLabel: tableLabelForKitchen,
+          counterOrderId,
+          items,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(
+          err?.error === "items_required"
+            ? "La comanda no tiene productos válidos."
+            : err?.error === "Forbidden"
+              ? "No tienes permiso para enviar a cocina."
+              : "No se pudo registrar en cocina.",
+        );
+        return;
+      }
+      const payload = {
+        title: es.orderFlow.sendKitchen,
+        subtitle: `${tableLabelForKitchen} · ${mode === "counter" ? "Mostrador" : "Mesa"}`,
+        lines: unsentLines.map((l) => ({ name: l.name, qty: l.qty })),
+      };
+      lastPrintPayload.current = payload;
+      // Respetar preferencia: imprimir comanda automáticamente o no
+      if (loadPrinterSettings().printKitchenAuto) {
+        printKitchenTicket(payload);
+      }
+      setCart((prev) =>
+        prev.map((l) => (unsentLines.some((u) => u.id === l.id) ? { ...l, kitchenSent: true } : l)),
       );
-      return;
+      window.dispatchEvent(new CustomEvent("pos-kitchen-updated"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      showToast(`Error de red al enviar a cocina: ${msg}`);
+    } finally {
+      setIsSendingKitchen(false);
     }
-    const payload = {
-      title: es.orderFlow.sendKitchen,
-      subtitle: `${tableLabelForKitchen} · ${mode === "counter" ? "Mostrador" : "Mesa"}`,
-      lines: unsentLines.map((l) => ({ name: l.name, qty: l.qty })),
-    };
-    lastPrintPayload.current = payload;
-    // Respetar preferencia: imprimir comanda automáticamente o no
-    if (loadPrinterSettings().printKitchenAuto) {
-      printKitchenTicket(payload);
-    }
-    setCart((prev) =>
-      prev.map((l) => (unsentLines.some((u) => u.id === l.id) ? { ...l, kitchenSent: true } : l)),
-    );
-    window.dispatchEvent(new CustomEvent("pos-kitchen-updated"));
   }
 
   function reprintLast() {
@@ -674,14 +684,23 @@ export function RestaurantOrderSidebar({
       {splitModal && (
         <SplitBillModal
           cart={cart}
+          discountAmount={discountMeta?.amount ?? 0}
           onClose={() => setSplitModal(false)}
           onCharge={(parts, label) => {
             const byId = new Map(cart.map((l) => [l.id, l] as const));
-            const splitTotal = parts.reduce((n, p) => {
+            const splitSubtotal = parts.reduce((n, p) => {
               const line = byId.get(p.lineId);
               return n + (line ? p.qty * line.unitPrice : 0);
             }, 0);
-            if (splitTotal <= 0) return;
+            if (splitSubtotal <= 0) return;
+            // Aplicar descuento proporcional al subtotal de esta parte
+            const cartFullSubtotal = cart.reduce((n, l) => n + l.qty * l.unitPrice, 0);
+            const discAmt = discountMeta?.amount ?? 0;
+            const proportionalDiscount =
+              discAmt > 0 && cartFullSubtotal > 0
+                ? Math.round((discAmt * (splitSubtotal / cartFullSubtotal)) * 100) / 100
+                : 0;
+            const splitTotal = Math.max(0, splitSubtotal - proportionalDiscount);
             setPendingCharge({ total: splitTotal, parts, label });
             setSplitModal(false);
             setPaymentModal(true);
@@ -1169,12 +1188,12 @@ export function RestaurantOrderSidebar({
               </button>
               <button
                 type="button"
-                disabled={!canSendKitchen}
+                disabled={!canSendKitchen || isSendingKitchen}
                 className="rounded-lg py-2.5 text-[0.68rem] font-extrabold uppercase tracking-wide text-white shadow-sm transition-all disabled:opacity-40 active:scale-[0.97]"
                 style={{ backgroundColor: "var(--pos-primary)" }}
                 onClick={() => void sendKitchen()}
               >
-                {es.orderFlow.sendKitchen}
+                {isSendingKitchen ? "Enviando..." : es.orderFlow.sendKitchen}
               </button>
             </div>
 
@@ -1221,10 +1240,12 @@ export function RestaurantOrderSidebar({
 
 function SplitBillModal({
   cart,
+  discountAmount = 0,
   onClose,
   onCharge,
 }: {
   cart: CartLine[];
+  discountAmount?: number;
   onClose: () => void;
   onCharge: (parts: ChargeLinePart[], label: string) => void;
 }) {
@@ -1256,6 +1277,16 @@ function SplitBillModal({
       : mode === "people"
         ? byPercent(100 / Math.max(1, people))
         : byPercent(Math.max(1, Math.min(100, percent)));
+
+  const partSubtotal = chargeParts.reduce((n, p) => {
+    const line = cart.find((l) => l.id === p.lineId);
+    return n + (line ? p.qty * line.unitPrice : 0);
+  }, 0);
+  const proportionalDiscount =
+    discountAmount > 0 && subtotal > 0
+      ? Math.round((discountAmount * (partSubtotal / subtotal)) * 100) / 100
+      : 0;
+  const partTotal = Math.max(0, partSubtotal - proportionalDiscount);
 
   return (
     <div className="fixed inset-0 z-[131] flex items-center justify-center bg-black/45 p-3">
@@ -1295,6 +1326,22 @@ function SplitBillModal({
             ))}
           </div>
         )}
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+          <div className="flex justify-between text-slate-600">
+            <span>Subtotal parte</span>
+            <span className="tabular-nums">${partSubtotal.toFixed(2)}</span>
+          </div>
+          {proportionalDiscount > 0 && (
+            <div className="flex justify-between text-rose-600">
+              <span>Descuento proporcional</span>
+              <span className="tabular-nums">−${proportionalDiscount.toFixed(2)}</span>
+            </div>
+          )}
+          <div className="mt-1 flex justify-between border-t border-slate-200 pt-1 font-extrabold text-slate-900">
+            <span>Total a cobrar</span>
+            <span className="tabular-nums">${partTotal.toFixed(2)}</span>
+          </div>
+        </div>
         <div className="mt-4 flex gap-2">
           <button type="button" className="flex-1 rounded-lg border border-slate-300 py-2 text-sm font-bold" onClick={onClose}>Cancelar</button>
           <button

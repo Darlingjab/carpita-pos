@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   if (!amount) return NextResponse.json({ error: "amount_required" }, { status: 400 });
 
   const movement = {
-    id: `mov_${Date.now()}`,
+    id: `mov_${randomUUID()}`,
     businessId: business.id,
     type: type as "in" | "out",
     amount,

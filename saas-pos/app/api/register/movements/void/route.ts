@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { registerMovementCashDelta } from "@/lib/register-balance";
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   const reversal = -registerMovementCashDelta(target);
   const business = getCurrentBusinessMock();
   const movement = {
-    id: `mov_adj_${Date.now()}`,
+    id: `mov_adj_${randomUUID()}`,
     businessId: business.id,
     type: "adjustment" as const,
     amount: reversal,

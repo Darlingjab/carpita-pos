@@ -4,10 +4,15 @@ import { hashPassword, verifyPassword } from "@/lib/password";
 import type { AppUser, Permission, RoleName, UserAccountRow } from "@/lib/types";
 import { uniqueStaffEmail } from "@/lib/staff-email";
 
+/** Longitud mínima requerida para nuevas contraseñas. */
+export const MIN_PASSWORD_LENGTH = 6;
+
 /**
- * Contraseñas en texto plano solo para los seeds iniciales.
- * Se migran a passwordHash automáticamente en el primer verifyLogin.
+ * Cuentas seed. Las contraseñas iniciales se hashean en module init
+ * (scrypt es síncrono) para que nunca exista texto plano en memoria
+ * ni se serialice a cloud-sync.
  */
+const SEED_DEFAULT_PASSWORD = "1234";
 const rows: UserAccountRow[] = [
   {
     id: "usr_admin",
@@ -15,7 +20,7 @@ const rows: UserAccountRow[] = [
     fullName: "Administrador Carpita",
     email: "admin@carpita",
     role: "admin",
-    passwordPlain: "1234",
+    passwordHash: hashPassword(SEED_DEFAULT_PASSWORD),
     enabled: true,
     disabledPermissions: [],
   },
@@ -25,7 +30,7 @@ const rows: UserAccountRow[] = [
     fullName: "Cajero Carpita",
     email: "cajero@carpita",
     role: "cashier",
-    passwordPlain: "1234",
+    passwordHash: hashPassword(SEED_DEFAULT_PASSWORD),
     enabled: true,
     disabledPermissions: [],
   },
@@ -35,7 +40,7 @@ const rows: UserAccountRow[] = [
     fullName: "Supervisor Carpita",
     email: "supervisor@carpita",
     role: "supervisor",
-    passwordPlain: "1234",
+    passwordHash: hashPassword(SEED_DEFAULT_PASSWORD),
     enabled: true,
     disabledPermissions: [],
   },
@@ -58,7 +63,16 @@ export function getDefaultAppUser(): AppUser {
 }
 
 export function getAllUserRows(): UserAccountRow[] {
-  return [...rows];
+  // Defensa en profundidad: nunca exponer passwordPlain (legacy) al exterior
+  // ni a la serialización cloud-sync.
+  return rows.map((r) => {
+    if (r.passwordPlain !== undefined) {
+      const { passwordPlain: _omit, ...rest } = r;
+      void _omit;
+      return rest as UserAccountRow;
+    }
+    return { ...r };
+  });
 }
 
 /** Reemplaza todas las cuentas (hidratación desde Supabase). */
@@ -195,7 +209,7 @@ export function deleteUserAccount(id: string): boolean {
 export function changeOwnPassword(userId: string, currentPassword: string, newPassword: string): boolean {
   const r = findRowById(userId);
   if (!r || !r.enabled) return false;
-  if (!newPassword || newPassword.length < 4) return false;
+  if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) return false;
 
   // Verificar contraseña actual (soporta hash y legacy)
   if (r.passwordHash) {

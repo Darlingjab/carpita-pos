@@ -13,6 +13,7 @@ import {
 } from "@/lib/register-open-snapshot";
 import { PaymentMethod, SaleChannel } from "@/lib/types";
 import { ToastBanner } from "@/lib/components/ToastBanner";
+import { ErrorBoundary } from "@/lib/components/ErrorBoundary";
 
 type CartLine = { productId: string; name: string; qty: number; unitPrice: number };
 
@@ -345,12 +346,14 @@ function PosContent() {
 
 export default function PosPage() {
   return (
-    <Suspense
-      fallback={
-        <section className="card p-12 text-center text-zinc-500">{es.pos.loading}</section>
-      }
-    >
-      <PosContent />
-    </Suspense>
+    <ErrorBoundary section="POS">
+      <Suspense
+        fallback={
+          <section className="card p-12 text-center text-zinc-500">{es.pos.loading}</section>
+        }
+      >
+        <PosContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }

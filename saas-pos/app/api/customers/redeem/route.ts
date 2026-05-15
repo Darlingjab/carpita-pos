@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { addCustomerPointsMovement, findCustomer } from "@/lib/store";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   addCustomerPointsMovement({
-    id: `pt_redeem_${Date.now()}`,
+    id: `pt_redeem_${randomUUID()}`,
     businessId: business.id,
     customerId: c.id,
     type: "redeem",

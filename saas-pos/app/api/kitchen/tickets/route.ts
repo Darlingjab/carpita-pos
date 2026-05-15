@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "items_required" }, { status: 400 });
   }
   const ticket: KitchenTicket = {
-    id: `kds_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    id: `kds_${randomUUID()}`,
     businessId: business.id,
     channel: body.channel,
     tableId: body.tableId,

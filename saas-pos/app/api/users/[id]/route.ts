@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import type { Permission } from "@/lib/types";
-import { deleteUserAccount, findRowById, toAppUser, updateUserAccount } from "@/lib/user-accounts";
+import {
+  MIN_PASSWORD_LENGTH,
+  deleteUserAccount,
+  findRowById,
+  toAppUser,
+  updateUserAccount,
+} from "@/lib/user-accounts";
 
 function rowToJson(r: NonNullable<ReturnType<typeof findRowById>>) {
   return {
@@ -32,7 +38,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
   if (body.fullName !== undefined) patch.fullName = body.fullName;
   if (body.email !== undefined) patch.email = body.email;
   if (body.password !== undefined && body.password.length > 0) {
-    if (body.password.length < 6) {
+    if (body.password.length < MIN_PASSWORD_LENGTH) {
       return NextResponse.json({ error: "password_short" }, { status: 400 });
     }
     patch.password = body.password;

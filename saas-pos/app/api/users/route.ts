@@ -3,6 +3,7 @@ import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getCurrentBusinessMock, getSessionUserOrNull, hasPermission } from "@/lib/auth";
 import type { Permission } from "@/lib/types";
 import {
+  MIN_PASSWORD_LENGTH,
   createUserAccount,
   getAllUserRows,
   suggestNewUserEmail,
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
   if (!fullName || !role || !["admin", "cashier", "supervisor", "waiter", "cook"].includes(role)) {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   }
-  if (password.length < 6) {
+  if (password.length < MIN_PASSWORD_LENGTH) {
     return NextResponse.json({ error: "password_short" }, { status: 400 });
   }
 

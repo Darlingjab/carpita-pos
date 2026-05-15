@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { setRegisterOpened } from "@/lib/register-session-store";
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   const amount = Math.max(0, Number(body.amount) || 0);
   setRegisterOpened(amount);
   const movement = {
-    id: `mov_${Date.now()}`,
+    id: `mov_${randomUUID()}`,
     businessId: business.id,
     type: "open" as const,
     amount,

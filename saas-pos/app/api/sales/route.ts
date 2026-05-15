@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { getRegisterSessionState } from "@/lib/register-session-store";
@@ -72,7 +73,7 @@ export async function POST(request: Request) {
 
   const sale: Sale = {
     ...body,
-    id: `sale_${Date.now()}`,
+    id: `sale_${randomUUID()}`,
     businessId: business.id,
     createdAt: new Date().toISOString(),
     createdBy: user.id,

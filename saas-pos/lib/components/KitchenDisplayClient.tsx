@@ -80,11 +80,28 @@ export function KitchenDisplayClient() {
   const [kdsBusy, setKdsBusy] = useState(false);
   const autoReadyLocks = useRef(new Set<string>());
   const prevTicketCountRef = useRef<number | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const [audioEnabled, setAudioEnabled] = useState(false);
+
+  /** Activa el AudioContext mediante un gesto del usuario (necesario en Safari iOS). */
+  function enableAudio() {
+    try {
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!audioCtxRef.current) audioCtxRef.current = new Ctx();
+      void audioCtxRef.current.resume();
+      setAudioEnabled(true);
+    } catch {
+      /* ignore */
+    }
+  }
 
   /** Genera un beep de cocina usando Web Audio API */
   function playKitchenBeep() {
+    if (!audioEnabled || !audioCtxRef.current) return;
     try {
-      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const ctx = audioCtxRef.current;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -106,7 +123,6 @@ export function KitchenDisplayClient() {
       gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.9);
       osc2.start(ctx.currentTime + 0.5);
       osc2.stop(ctx.currentTime + 0.9);
-      setTimeout(() => ctx.close(), 2000);
     } catch {
       // Web Audio API no disponible (SSR, etc.)
     }
@@ -291,7 +307,22 @@ export function KitchenDisplayClient() {
   }
 
   return (
-    <div className="flex min-h-[min(70dvh,560px)] flex-col gap-3 lg:flex-row lg:items-stretch">
+    <div className="flex min-h-[min(70dvh,560px)] flex-col gap-3">
+      {!audioEnabled && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
+          <p className="text-xs font-bold text-amber-900">
+            Activa el sonido para escuchar alertas de nuevas comandas
+          </p>
+          <button
+            type="button"
+            className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-extrabold text-white hover:bg-amber-700"
+            onClick={enableAudio}
+          >
+            Activar sonido
+          </button>
+        </div>
+      )}
+      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:items-stretch">
       <section className="min-h-0 min-w-0 flex-1 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <h3 className="text-sm font-black uppercase tracking-wide text-slate-800">
@@ -473,6 +504,7 @@ export function KitchenDisplayClient() {
           })}
         </ul>
       </aside>
+      </div>
     </div>
   );
 }

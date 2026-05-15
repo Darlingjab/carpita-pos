@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { pushRuntimeToCloud } from "@/lib/cloud-sync";
 import { addCustomer, getCustomers } from "@/lib/store";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
   if (!name) return NextResponse.json({ error: "name_required" }, { status: 400 });
 
   const customer: Customer = {
-    id: `cus_${Date.now()}`,
+    id: `cus_${randomUUID()}`,
     businessId: business.id,
     name,
     phone: body.phone ?? null,
