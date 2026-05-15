@@ -6,8 +6,8 @@ import { canAccessPath } from "@/lib/role-access";
 import { pullRuntimeFromCloud } from "@/lib/cloud-sync";
 import { findRowById, getDefaultAppUser, toAppUser } from "@/lib/user-accounts";
 import { verifySession } from "@/lib/session";
-
-export const COOKIE_NAME = "pos_session";
+import { COOKIE_NAME } from "@/lib/auth-cookie";
+export { COOKIE_NAME } from "@/lib/auth-cookie";
 
 /** @deprecated Las credenciales viven en cuentas de usuario (`user-accounts`). */
 export const DEMO_CREDENTIALS = {} as Record<string, { password: string; role: string }>;
